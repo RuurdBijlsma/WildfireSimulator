@@ -10,7 +10,7 @@ import xarray as xr
 
 
 def run():
-    p = os.path.abspath("data/c_gls_BA300_201607200000_GLOBE_PROBAV_V1.0.1.nc")
+    p = os.path.abspath("data/burnt/c_gls_BA300_201607200000_GLOBE_PROBAV_V1.0.1.nc")
     dnc = xr.open_dataset(p)
     print(f"lat size: {dnc.lat.size}")
     print(f"lon size: {dnc.lon.size}")
