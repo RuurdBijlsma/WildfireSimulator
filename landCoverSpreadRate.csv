@@ -31,17 +31,17 @@ CLC_CODE;LABEL3;SPREAD_RATE
 331;Beaches, dunes, sands;0.1
 332;Bare rocks;0.1
 333;Sparsely vegetated areas;0.3
-334;Burnt areas;1
-335;Glaciers and perpetual snow;1
-411;Inland marshes;1
-412;Peat bogs;1
-421;Salt marshes;1
-422;Salines;1
-423;Intertidal flats;1
-511;Water courses;1
-512;Water bodies;1
-521;Coastal lagoons;1
-522;Estuaries;1
+334;Burnt areas;0.5
+335;Glaciers and perpetual snow;0.1
+411;Inland marshes;0.4
+412;Peat bogs;0.5
+421;Salt marshes;0.5
+422;Salines;0
+423;Intertidal flats;0
+511;Water courses;0
+512;Water bodies;0
+521;Coastal lagoons;0
+522;Estuaries;0.1
 523;Sea and ocean;0
 999;NODATA;0.3
 990;UNCLASSIFIED LAND SURFACE;0.3

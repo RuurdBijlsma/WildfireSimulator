@@ -4,6 +4,9 @@ import os
 import geopandas
 import numpy as np
 from matplotlib import pyplot as plt
+import csv
+import matplotlib.patches as patches
+
 
 # TODO
 # Change units to real units
@@ -18,6 +21,28 @@ from matplotlib import pyplot as plt
 # Consider crown/bush/sub-ground/surface fires
 # * Maybe have a 3d CA that is 2/3 layers high?
 # Consider high intensity fires can jump larger distances than others
+
+def load_land_cover(left, bottom, right, top):
+    p = os.path.abspath("data/DATA/U2018_CLC2018_V2020_20u1.gpkg")
+    print(p)
+    # gdf_mask = geopandas.read_file(geopandas.datasets.get_path("naturalearth_lowres"))
+    # gdf_mask.plot()
+    # gdf = geopandas.read_file(p, mask=gdf_mask[gdf_mask.name == "Cyprus"])
+    gdf = geopandas.read_file(p, bbox=([left, bottom, right, top]))
+
+    # gdf = gdf.to_crs("EPSG:4326")
+
+    print(gdf.head())
+    rect = patches.Rectangle((left, bottom), (right - left), (top - bottom),
+                             linewidth=1, edgecolor='r', facecolor='none')
+    fig, ax = plt.subplots()
+    gdf.plot("Code_18", ax=ax)
+    ax.add_patch(rect)
+    plt.show()
+    print("DONE")
+
+    return gdf
+
 
 class Simulation:
     def __init__(self):
@@ -53,16 +78,17 @@ class Simulation:
                 self.wind_matrix[x, y] = rel_x * wind_from_x + rel_y * wind_from_y
         self.wind_matrix = np.clip((self.wind_matrix * wind_speed / 2 + 1), a_min=0, a_max=3)
 
-        self.width = 50
+        self.width = 70
         self.height = 50
-        # features: [fire activity, fuel, height] (later land cover at the end)
-        self.num_features = 3
+        # features: [fire activity, fuel, land_cover, height]
+        self.num_features = 4
         self.grid = np.zeros((self.width, self.height, self.num_features))
         # Spread rate
         self.grid[:, :, 1] = 1
         # height
-        self.grid[:, :, 2] = 0
-        self.grid[:, :, 2] = np.array(range(self.width)) / self.width
+        self.grid[:, :, 3] = 0
+        # Set height to gradient
+        self.grid[:, :, 3] = np.array(range(self.height)) / self.height
         # self.grid[0:15, 0:15, 2] = 1
         # self.grid[:, :, 2] = np.random.random((self.width, self.height))
         # Start fire activity at 0,0
@@ -71,19 +97,31 @@ class Simulation:
         # Remove fuel from area
         self.grid[self.width // 2, 0:self.height // 2, 1] = 0
 
-    def load_land_cover(self):
-        p = os.path.abspath("data/DATA/U2018_CLC2018_V2020_20u1.gpkg")
-        print(p)
-        gdf_mask = geopandas.read_file(geopandas.datasets.get_path("naturalearth_lowres"))
-        # gdf = geopandas.read_file(p, mask=gdf_mask[gdf_mask.name == "Cyprus"])
-        gdf = geopandas.read_file(p, bbox=(1.6 * 1e6, 1.7 * 1e6, 6.3 * 1e6, 6.5 * 1e6))
-
-        print(gdf.head())
-        gdf.plot("Code_18")
-        plt.show()
-        print("DONE")
-
-        return gdf
+        # Land cover
+        # Mercator x/y bounds
+        land_cover_rates = {}
+        with open('landCoverSpreadRate.csv') as csvfile:
+            reader = csv.reader(csvfile, delimiter=';')
+            for [clc_code, _, spread_rate] in reader:
+                if clc_code == 'CLC_CODE':
+                    continue
+                land_cover_rates[clc_code] = float(spread_rate)
+        bbox_bottom = 1625000
+        bbox_top = 1635000
+        bbox_left = 6420000
+        bbox_right = 6435000
+        self.gdf = load_land_cover(bbox_left, bbox_bottom, bbox_right, bbox_top)
+        for y in range(0, self.height):
+            for x in range(0, self.width):
+                map_x = bbox_left + (bbox_right - bbox_left) * y / self.height
+                map_y = bbox_bottom + (bbox_top - bbox_bottom) * (1 - x / self.width)
+                map_value = self.gdf.cx[map_x:map_x + 0.0001, map_y:map_y + 0.0001]
+                cell_type = map_value['Code_18'].item()
+                cell_spread_rate = land_cover_rates[cell_type]
+                # print(cell_spread_rate)
+                self.grid[x, y, 2] = cell_spread_rate
+            print(f"{y} / {self.height}")
+        print(self.grid)
 
     def tick(self):
         new_grid = self.grid.copy()
@@ -105,9 +143,10 @@ class Simulation:
                 # Also consider height difference and later land cover
                 neighbours = self.grid[x - 1:x + 2, y - 1:y + 2, :]
                 activity_matrix = np.multiply(neighbours[:, :, 0], self.wind_matrix)
-                height_diff_matrix = (cell[2] - neighbours[:, :, 2]) * self.height_multiplier + 1
+                height_diff_matrix = (cell[3] - neighbours[:, :, 3]) * self.height_multiplier + 1
                 activity_matrix *= height_diff_matrix
-                activity = activity_matrix.mean()
+                # Mean of activity matrix times spread rate based on land cover of current cell
+                activity = activity_matrix.mean() * cell[2]
                 # If neighbouring fire activity is high enough
                 if activity + 0.2 > np.random.random():
                     # Increase fire activity in current cell

@@ -46,7 +46,7 @@ class App(tk.Frame):
 
         self.canvas.delete("all")
 
-        pil_image = Image.fromarray((self.simulation.grid * 255).astype(np.int8), "RGB")
+        pil_image = Image.fromarray((self.simulation.grid[:, :, 0:3] * 255).astype(np.int8), "RGB")
         # pil_image = Image.fromarray(self.simulation.grid[:, :, 0] * 255)
         pil_image = pil_image.resize((self.width, self.height), resample=Image.NEAREST)
         self.img = ImageTk.PhotoImage(image=pil_image)
