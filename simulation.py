@@ -9,11 +9,13 @@ import matplotlib.patches as patches
 
 
 # TODO
-# Change units to real units
-# Wind speed to m/s
-# Height to meters
+# PSO
+# Learn how to use?
+# Let pso set arguments for spread rate data
+# Give rates object to simulation
+# Do the pso thing
+
 # Spread rate: 1 / time to burn 1 cell (seconds^-1)
-# Use real world data!
 # 0. Use real-world units (1 cell is 50x50 meter or something)
 # 1. pick bbox
 # 2. pick (land cover/wind/height) for each cell
@@ -69,7 +71,7 @@ class Simulation:
         wind_speed = 0
         wind_from_x = math.cos(wind_direction)
         wind_from_y = math.sin(wind_direction)
-        self.wind_matrix = np.ones((3, 3), np.float)
+        self.wind_matrix = np.ones((3, 3), np.float32)
         for x in range(3):
             for y in range(3):
                 # Center = (1, 1)
@@ -82,6 +84,35 @@ class Simulation:
         self.height = 50
         # features: [fire activity, fuel, land_cover, height]
         self.num_features = 4
+
+        # Land cover
+        # Mercator x/y bounds
+        self.land_cover_rates = {}
+        with open('landCoverSpreadRate.csv') as csvfile:
+            reader = csv.reader(csvfile, delimiter=';')
+            for [clc_code, _, spread_rate] in reader:
+                if clc_code == 'CLC_CODE':
+                    continue
+                self.land_cover_rates[clc_code] = float(spread_rate)
+
+        bbox_bottom = 1625000
+        bbox_top = 1635000
+        bbox_left = 6420000
+        bbox_right = 6435000
+        self.gdf = load_land_cover(bbox_left, bbox_bottom, bbox_right, bbox_top)
+        self.land_cover_types = np.zeros((self.width, self.height), np.int16)
+        for y in range(0, self.height):
+            for x in range(0, self.width):
+                map_x = bbox_left + (bbox_right - bbox_left) * y / self.height
+                map_y = bbox_bottom + (bbox_top - bbox_bottom) * (1 - x / self.width)
+                map_value = self.gdf.cx[map_x:map_x + 0.0001, map_y:map_y + 0.0001]
+                cell_type = map_value['Code_18'].item()
+                self.land_cover_types[x, y] = cell_type
+            print(f"{y + 1} / {self.height}")
+
+        self.reset_grid()
+
+    def reset_grid(self):
         self.grid = np.zeros((self.width, self.height, self.num_features))
         # Spread rate
         self.grid[:, :, 1] = 1
@@ -97,36 +128,23 @@ class Simulation:
         # Remove fuel from area
         self.grid[self.width // 2, 0:self.height // 2, 1] = 0
 
-        # Land cover
-        # Mercator x/y bounds
-        land_cover_rates = {}
-        with open('landCoverSpreadRate.csv') as csvfile:
-            reader = csv.reader(csvfile, delimiter=';')
-            for [clc_code, _, spread_rate] in reader:
-                if clc_code == 'CLC_CODE':
-                    continue
-                land_cover_rates[clc_code] = float(spread_rate)
-        bbox_bottom = 1625000
-        bbox_top = 1635000
-        bbox_left = 6420000
-        bbox_right = 6435000
-        self.gdf = load_land_cover(bbox_left, bbox_bottom, bbox_right, bbox_top)
+        # Set spread rate based on land cover type
         for y in range(0, self.height):
             for x in range(0, self.width):
-                map_x = bbox_left + (bbox_right - bbox_left) * y / self.height
-                map_y = bbox_bottom + (bbox_top - bbox_bottom) * (1 - x / self.width)
-                map_value = self.gdf.cx[map_x:map_x + 0.0001, map_y:map_y + 0.0001]
-                cell_type = map_value['Code_18'].item()
-                cell_spread_rate = land_cover_rates[cell_type]
+                cell_type = self.land_cover_types[x, y]
+                # edit land_Cover_rates with pso
+                cell_spread_rate = self.land_cover_rates[str(cell_type)]
                 # print(cell_spread_rate)
                 self.grid[x, y, 2] = cell_spread_rate
-            print(f"{y} / {self.height}")
-        print(self.grid)
+        print("GRID RESET DONE")
+
+    def get_fitness(self):
+        return np.random.random()
 
     def tick(self):
         new_grid = self.grid.copy()
-        for x in np.arange(1, self.width - 1, dtype=np.int):
-            for y in np.arange(1, self.height - 1, dtype=np.int):
+        for x in np.arange(1, self.width - 1, dtype=np.int32):
+            for y in np.arange(1, self.height - 1, dtype=np.int32):
                 cell = self.grid[x, y, :]
                 # If cell has fire activity
                 if cell[0] > 0:

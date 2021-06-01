@@ -4,9 +4,6 @@ from PIL import Image, ImageTk
 import numpy as np
 
 
-# TODO
-# convert netCDF4 to geoTIFF
-# use land cover data for segment of earth in simulation
 
 class App(tk.Frame):
     def __init__(self, master=None):
@@ -27,8 +24,12 @@ class App(tk.Frame):
         self.tps = 20
         self.after(int(1000 / self.tps), self.render_loop)
         self.after(int(1000 / self.tps), self.simulation_loop)
-        # for _ in range(0, 50):
-        #     self.simulation.tick()
+
+        # for i in range(10):
+        #     for _ in range(0, 75):
+        #         self.simulation.tick()
+        #     print(f"Run {i}, fitness: {self.simulation.get_fitness()}")
+        #     self.simulation.reset_grid()
 
     def create_widgets(self):
         self.canvas = tk.Canvas(self, bg="#333", height=self.width, width=self.height)
