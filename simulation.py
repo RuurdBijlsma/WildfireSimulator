@@ -6,9 +6,19 @@ import numpy as np
 from matplotlib import pyplot as plt
 import csv
 import matplotlib.patches as patches
+from shapely.geometry import Point
+import pandas as pd
 
 
 # TODO
+# need results
+# for that i need
+# to compare stuff
+# t test ?
+# i need evaluate simulation
+# compare iou with real data
+# i need to read burnt data
+
 # PSO
 # Learn how to use?
 # Let pso set arguments for spread rate data
@@ -24,17 +34,19 @@ import matplotlib.patches as patches
 # * Maybe have a 3d CA that is 2/3 layers high?
 # Consider high intensity fires can jump larger distances than others
 
-def load_land_cover(left, bottom, right, top):
+def load_land_cover(frame_bbox):
     p = os.path.abspath("data/DATA/U2018_CLC2018_V2020_20u1.gpkg")
     print(p)
     # gdf_mask = geopandas.read_file(geopandas.datasets.get_path("naturalearth_lowres"))
     # gdf_mask.plot()
     # gdf = geopandas.read_file(p, mask=gdf_mask[gdf_mask.name == "Cyprus"])
-    gdf = geopandas.read_file(p, bbox=([left, bottom, right, top]))
+    gdf = geopandas.read_file(p, bbox=frame_bbox)
+    gdf.to_crs(epsg=4326, inplace=True)
 
     # gdf = gdf.to_crs("EPSG:4326")
 
     print(gdf.head())
+    [left, bottom, right, top] = frame_bbox.total_bounds
     rect = patches.Rectangle((left, bottom), (right - left), (top - bottom),
                              linewidth=1, edgecolor='r', facecolor='none')
     fig, ax = plt.subplots()
@@ -95,18 +107,28 @@ class Simulation:
                     continue
                 self.land_cover_rates[clc_code] = float(spread_rate)
 
-        bbox_bottom = 1625000
-        bbox_top = 1635000
-        bbox_left = 6420000
-        bbox_right = 6435000
-        self.gdf = load_land_cover(bbox_left, bbox_bottom, bbox_right, bbox_top)
+        df = pd.DataFrame({
+            'Latitude': [34.7, 35.2],  # Y value
+            'Longitude': [32.9, 33.9]  # X value
+        })
+        df['Coordinates'] = list(zip(df.Longitude, df.Latitude))
+        df['Coordinates'] = df['Coordinates'].apply(Point)
+        frame = geopandas.GeoDataFrame(df, geometry='Coordinates')
+        frame.set_crs(epsg=4326, inplace=True)
+        [left, bottom, right, top] = frame.total_bounds
+
+        self.gdf = load_land_cover(frame)
         self.land_cover_types = np.zeros((self.width, self.height), np.int16)
         for y in range(0, self.height):
             for x in range(0, self.width):
-                map_x = bbox_left + (bbox_right - bbox_left) * y / self.height
-                map_y = bbox_bottom + (bbox_top - bbox_bottom) * (1 - x / self.width)
+                map_x = left + (right - left) * y / self.height
+                map_y = bottom + (top - bottom) * (1 - x / self.width)
                 map_value = self.gdf.cx[map_x:map_x + 0.0001, map_y:map_y + 0.0001]
-                cell_type = map_value['Code_18'].item()
+                slice_length = len(map_value)
+                if slice_length > 0:
+                    cell_type = map_value.Code_18.values[0]
+                else:
+                    cell_type = 999
                 self.land_cover_types[x, y] = cell_type
             print(f"{y + 1} / {self.height}")
 

@@ -1,64 +1,66 @@
-import geopandas
 import os
 import netCDF4 as nc
-import matplotlib.pyplot as plt
+import geopandas
 import numpy as np
-from mpl_toolkits.basemap import Basemap
+from PIL import Image
+from matplotlib import pyplot as plt
+from shapely.geometry import Point
+import pandas as pd
+
+
+def show_nc(nc_path):
+    df = pd.DataFrame({
+        'Latitude': [34.7, 35.2],  # Y value
+        'Longitude': [32.9, 33.9]  # X value
+    })
+    df['Coordinates'] = list(zip(df.Longitude, df.Latitude))
+    df['Coordinates'] = df['Coordinates'].apply(Point)
+    frame = geopandas.GeoDataFrame(df, geometry='Coordinates')
+    frame.set_crs(epsg=4326, inplace=True)
+    [left, bottom, right, top] = frame.total_bounds
+
+    ds = nc.Dataset(nc_path)
+    layer = 'FDOB_DEKAD'
+    # x = 71600
+    # y = 15150  # lower is higher in the map
+    # size = 400
+    # bottom = y - size // 2
+    # top = y + size // 2
+    # left = x - size // 2
+    # right = x + size // 2
+    lats = ds['lat'][:].filled(0)
+    lons = ds['lon'][:].filled(0)
+    i_left = np.argmax(lons >= left)
+    i_right = np.argmax(lons >= right)
+    i_bottom = np.argmax(lats <= bottom)
+    i_top = np.argmax(lats <= top)
+    burns = ds[layer][i_top:i_bottom, i_left:i_right].filled(0)
+
+    plt.imshow(burns, interpolation='nearest')
+    plt.show()
 
 
 def run():
-    ff = os.path.abspath("data/burnt/c_gls_BA300_201607200000_GLOBE_PROBAV_V1.0.1.nc")
-    ds = nc.Dataset(ff)
-    layer = 'FDOB_DEKAD'
-    x = 71600
-    y = 15150  # lower is higher in the map
-    size = 200
-    bottom = y - size
-    top = y + size
-    left = x - size
-    right = x + size
-    lats = ds['lat'][bottom:top]
-    lons = ds['lon'][left:right]
-    burns = ds[layer][bottom:top, left:right]
-    print(burns)
-    burns_units = ds.variables[layer].units
-    ds.close()
-
-    lon_0 = lons.mean()
-    lat_0 = lats.mean()
-
-    print(lat_0, lon_0)
-
-    m = Basemap(width=100000, height=80000,
-                resolution='i', projection='stere',
-                lat_ts=40, lat_0=lat_0, lon_0=lon_0)
-
-    # Because our lon and lat variables are 1D,
-    # use meshgrid to create 2D arrays
-    # Not necessary if coordinates are already in 2D arrays.
-    lon, lat = np.meshgrid(lons, lats)
-    xi, yi = m(lon, lat)
-
-    # Plot Data
-    cs = m.pcolor(xi, yi, np.squeeze(burns))
-
-    # Add Grid Lines
-    m.drawparallels(np.arange(-80., 81., 10.), labels=[1, 0, 0, 0], fontsize=10)
-    m.drawmeridians(np.arange(-180., 181., 10.), labels=[0, 0, 0, 1], fontsize=10)
-
-    # Add Coastlines, States, and Country Boundaries
-    m.drawcoastlines()
-    m.drawstates()
-    m.drawcountries()
-
-    # Add Colorbar
-    cbar = m.colorbar(cs, location='bottom', pad="10%")
-    cbar.set_label(burns_units)
-
-    # Add Title
-    plt.title(layer)
-
-    plt.show()
+    ffs = [
+        os.path.abspath("data/burnt/c_gls_BA300_201605100000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201605200000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201605310000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201606100000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201606200000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201606300000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201607100000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201607200000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201607310000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201608100000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201608200000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201608310000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201609100000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201609200000_GLOBE_PROBAV_V1.0.1.nc"),
+        os.path.abspath("data/burnt/c_gls_BA300_201609300000_GLOBE_PROBAV_V1.0.1.nc"),
+    ]
+    for ff in ffs:
+        show_nc(ff)
+    # show_nc(ffs[0])
 
 
 if __name__ == '__main__':
