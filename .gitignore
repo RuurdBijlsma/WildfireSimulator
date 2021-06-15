@@ -2,3 +2,4 @@
 data/*/*
 !data/DATA/land_cover_file
 report.log
+lct_*.npy

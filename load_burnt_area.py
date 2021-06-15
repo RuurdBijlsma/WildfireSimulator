@@ -37,6 +37,8 @@ def show_nc(nc_path):
     burns = ds[layer][i_top:i_bottom, i_left:i_right].filled(0)
 
     plt.imshow(burns, interpolation='nearest')
+    title = os.path.basename(nc_path)
+    plt.title(title)
     plt.show()
 
 
