@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 from shapely.geometry import Point
 import pandas as pd
 import cv2 as cv
+from math import sin, cos, sqrt, atan2, radians
 
 
 # TODO
@@ -36,6 +37,25 @@ import cv2 as cv
 # Consider crown/bush/sub-ground/surface fires
 # * Maybe have a 3d CA that is 2/3 layers high?
 # Consider high intensity fires can jump larger distances than others
+
+def distance_between_coordinates(lat1, lon1, lat2, lon2):
+    # approximate radius of earth in km
+    earth_radius = 6373
+
+    lat1 = radians(lat1)
+    lon1 = radians(lon1)
+    lat2 = radians(lat2)
+    lon2 = radians(lon2)
+
+    lon_distance = lon2 - lon1
+    lat_distance = lat2 - lat1
+
+    a = sin(lat_distance / 2) ** 2 + cos(lat1) * cos(lat2) * sin(lon_distance / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+    return earth_radius * c
+
+
 def load_burnt_area(nc_path, width, height, frame):
     [left, bottom, right, top] = frame.total_bounds
 
@@ -63,7 +83,7 @@ def load_burnt_areas(frame, width, height):
         os.path.abspath("data/burnt/c_gls_BA300_201609100000_GLOBE_PROBAV_V1.0.1.nc"),
         os.path.abspath("data/burnt/c_gls_BA300_201609200000_GLOBE_PROBAV_V1.0.1.nc"),
     ]
-    return list(map(lambda x: load_burnt_area(x, width, height, frame), nc_paths))
+    return load_burnt_area(nc_paths[0], width, height, frame), load_burnt_area(nc_paths[1], width, height, frame)
 
 
 def load_land_cover_dataframe(frame):
@@ -123,10 +143,8 @@ def load_land_cover(frame, width, height, cached=True):
 
 class Simulation:
     def __init__(self):
-        # 1 hour per tick = 3600 seconds per tick
-        self.time_per_tick = 3600
-        self.L = 1  # Cell is 1 meter by 1 meter
-        self.cell_area = 1  # 1 * 1
+        self.time_per_tick = 60 * 60  # 1 hour
+        self.time_between_burnt_areas = 60 * 60 * 24 * 10  # 10 days
         # new cell state is old cell state + sum of all (neighbours mju value * neighbours state)
         # round cell state to 0..0.1...1
         # Per cell parameter:
@@ -174,8 +192,18 @@ class Simulation:
         frame = geopandas.GeoDataFrame(bounds, geometry='Coordinates')
         frame.set_crs(epsg=4326, inplace=True)
 
-        self.burnt_areas = load_burnt_areas(frame, self.width, self.height)
+        self.burnt_area_start, self.burnt_area_end = load_burnt_areas(frame, self.width, self.height)
         self.land_cover_rates, self.land_cover_types = load_land_cover(frame, self.width, self.height)
+
+        self.cell_width = distance_between_coordinates(
+            bounds.Latitude[0], bounds.Longitude[0],
+            bounds.Latitude[0], bounds.Longitude[1],
+        ) / self.width
+        self.cell_height = distance_between_coordinates(
+            bounds.Latitude[0], bounds.Longitude[0],
+            bounds.Latitude[1], bounds.Longitude[0],
+        ) / self.width
+        self.cell_area = self.cell_width * self.cell_height
 
         self.reset_grid()
 
@@ -188,10 +216,10 @@ class Simulation:
         # Start fire activity at 0,0
         # self.grid[20:23, 20:23, 0] = 1
         # Start fire activity at burnt area data
-        self.grid[:, :, 0] = np.clip(self.burnt_areas[0], 0, 1)
+        self.grid[:, :, 0] = np.clip(self.burnt_area_start, 0, 1)
 
         # Remove fuel from area
-        self.grid[self.width // 2, 0:self.height // 2, 1] = 0
+        # self.grid[self.width // 2, 0:self.height // 2, 1] = 0
 
         # Set spread rate based on land cover type
         for y in range(0, self.height):
@@ -204,7 +232,20 @@ class Simulation:
         print("GRID RESET DONE")
 
     def get_fitness(self):
-        return np.random.random()
+        # Compare burnt area result with self.burnt_area_end
+        simulated_burnt_area = (1 - self.grid[:, :, 1]) > 0.8
+        burnt_area = self.burnt_area_end > 0.8
+        equal = simulated_burnt_area == burnt_area
+        fitness = equal.sum() / equal.size
+
+        fig, axs = plt.subplots(1, 2)
+        axs[0].imshow(simulated_burnt_area, interpolation='nearest')
+        axs[0].set_title('simulated burnt area')
+        axs[1].imshow(burnt_area, interpolation='nearest')
+        axs[1].set_title('actual burnt area')
+        plt.show()
+
+        return fitness
 
     def tick(self):
         new_grid = self.grid.copy()
@@ -233,7 +274,16 @@ class Simulation:
                 # If neighbouring fire activity is high enough
                 if activity + 0.2 > np.random.random():
                     # Increase fire activity in current cell
-                    new_grid[x, y, 0] += cell[1] * activity
+                    new_grid[x, y, 0] += cell[1] * activity / self.cell_area
                 elif activity <= 0.1:
-                    new_grid[x, y, 0] /= 1.2
+                    new_grid[x, y, 0] /= 1 + (.2 / self.cell_area)
         self.grid = new_grid
+
+
+if __name__ == '__main__':
+    sim = Simulation()
+    ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
+    print(f"Simulating {ticks_to_end} ticks")
+    for i in range(ticks_to_end):
+        sim.tick()
+    print(sim.get_fitness())

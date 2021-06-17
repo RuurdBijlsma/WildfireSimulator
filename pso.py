@@ -2,6 +2,10 @@ import numpy as np
 import pyswarms as ps
 import csv
 
+from simulation import Simulation
+
+simulation = Simulation()
+
 
 def get_fitness(elements):
     return elements.var()
