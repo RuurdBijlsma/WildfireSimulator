@@ -4,11 +4,18 @@ import csv
 
 from simulation import Simulation
 
-simulation = Simulation()
+sim = Simulation()
+ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
+print(f"Simulating {ticks_to_end} ticks")
 
 
 def get_fitness(elements):
-    return elements.var()
+    # TODO change to use elements
+    sim.set_parameters(elements)
+    sim.reset_grid()
+    for i in range(ticks_to_end):
+        sim.tick()
+    return sim.get_fitness()
 
 
 def f(x):
