@@ -10,7 +10,6 @@ print(f"Simulating {ticks_to_end} ticks")
 
 
 def get_fitness(elements):
-    # TODO change to use elements
     sim.set_parameters(elements)
     sim.reset_grid()
     for i in range(ticks_to_end):
@@ -41,13 +40,13 @@ dimensions = land_cover_rates.shape[0]
 max_bound = 2 * np.ones(dimensions)
 min_bound = np.zeros(dimensions)
 bounds = (min_bound, max_bound)
-optimizer = ps.single.GlobalBestPSO(n_particles=100,
+optimizer = ps.single.GlobalBestPSO(n_particles=25,
                                     dimensions=dimensions,
                                     options=options,
                                     bounds=bounds)
 
 # Perform optimization
-cost, pos = optimizer.optimize(f, iters=1000)
+cost, pos = optimizer.optimize(f, iters=100)
 print(pos)
 
 # Create a RandomSearch object

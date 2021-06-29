@@ -2,17 +2,13 @@ import os
 import netCDF4 as nc
 import geopandas
 import numpy as np
-from PIL import Image
 from matplotlib import pyplot as plt
 from shapely.geometry import Point
-import pandas as pd
+from regions import region
 
 
 def show_nc(nc_path):
-    df = pd.DataFrame({
-        'Latitude': [34.7, 35.2],  # Y value
-        'Longitude': [32.9, 33.9]  # X value
-    })
+    df = region["bounds"]
     df['Coordinates'] = list(zip(df.Longitude, df.Latitude))
     df['Coordinates'] = df['Coordinates'].apply(Point)
     frame = geopandas.GeoDataFrame(df, geometry='Coordinates')

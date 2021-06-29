@@ -1,10 +1,10 @@
 import geopandas
 import numpy as np
-from matplotlib import pyplot as plt
 from shapely.geometry import Point
-import pandas as pd
 from math import sin, cos, radians
 from simulation_utils import load_burnt_areas, load_land_cover, distance_between_coordinates
+from regions import region
+
 
 # TODO
 # PSO
@@ -20,6 +20,7 @@ from simulation_utils import load_burnt_areas, load_land_cover, distance_between
 # Consider crown/bush/sub-ground/surface fires
 # * Maybe have a 3d CA that is 2/3 layers high?
 # Consider high intensity fires can jump larger distances than others
+# Setting start situation from burnt area data is not accurate because i set it to fire activity
 
 
 class Simulation:
@@ -56,18 +57,15 @@ class Simulation:
                 self.wind_matrix[x, y] = rel_x * wind_from_x + rel_y * wind_from_y
         self.wind_matrix = np.clip((self.wind_matrix * wind_speed / 2 + 1), a_min=0, a_max=3)
 
-        self.width = 70
-        self.height = 50
+        self.width = 25
+        self.height = 25
         # features: [fire activity, fuel, land_cover, height]
         self.num_features = 4
 
         # Land cover
         # Mercator x/y bounds
 
-        bounds = pd.DataFrame({
-            'Latitude': [34.7, 35.2],  # Y value
-            'Longitude': [32.9, 33.9]  # X value
-        })
+        bounds = region["bounds"]
         bounds['Coordinates'] = list(zip(bounds.Longitude, bounds.Latitude))
         bounds['Coordinates'] = bounds['Coordinates'].apply(Point)
         frame = geopandas.GeoDataFrame(bounds, geometry='Coordinates')
@@ -89,8 +87,9 @@ class Simulation:
         self.reset_grid()
 
     def set_parameters(self, parameters):
-        # Todo implement this
-        pass
+        # TODO add wind and other params stuff
+        for index, key in enumerate(self.land_cover_rates):
+            self.land_cover_rates[key] = parameters[index]
 
     def reset_grid(self):
         self.grid = np.zeros((self.width, self.height, self.num_features))
@@ -114,7 +113,7 @@ class Simulation:
                 cell_spread_rate = self.land_cover_rates[str(cell_type)]
                 # print(cell_spread_rate)
                 self.grid[x, y, 2] = cell_spread_rate
-        print("GRID RESET DONE")
+        print("GRID RESET")
 
     def get_fitness(self):
         # Compare burnt area result with self.burnt_area_end
@@ -123,12 +122,12 @@ class Simulation:
         equal = simulated_burnt_area == burnt_area
         fitness = equal.sum() / equal.size
 
-        fig, axs = plt.subplots(1, 2)
-        axs[0].imshow(simulated_burnt_area, interpolation='nearest')
-        axs[0].set_title('simulated burnt area')
-        axs[1].imshow(burnt_area, interpolation='nearest')
-        axs[1].set_title('actual burnt area')
-        plt.show()
+        # fig, axs = plt.subplots(1, 2)
+        # axs[0].imshow(simulated_burnt_area, interpolation='nearest')
+        # axs[0].set_title('simulated burnt area, fitness: ' + str(fitness))
+        # axs[1].imshow(burnt_area, interpolation='nearest')
+        # axs[1].set_title('actual burnt area')
+        # plt.show()
 
         return fitness
 

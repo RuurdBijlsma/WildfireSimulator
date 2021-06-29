@@ -7,6 +7,7 @@ import csv
 import matplotlib.patches as patches
 import cv2 as cv
 from math import sin, cos, sqrt, atan2, radians
+from regions import region
 
 
 def distance_between_coordinates(lat1, lon1, lat2, lon2):
@@ -50,10 +51,7 @@ def load_burnt_area(nc_path, width, height, frame):
 
 
 def load_burnt_areas(frame, width, height):
-    nc_paths = [
-        os.path.abspath("data/burnt/c_gls_BA300_201609100000_GLOBE_PROBAV_V1.0.1.nc"),
-        os.path.abspath("data/burnt/c_gls_BA300_201609200000_GLOBE_PROBAV_V1.0.1.nc"),
-    ]
+    nc_paths = region["nc_paths"]
     return load_burnt_area(nc_paths[0], width, height, frame), load_burnt_area(nc_paths[1], width, height, frame)
 
 
