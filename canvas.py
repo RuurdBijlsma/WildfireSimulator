@@ -37,6 +37,7 @@ class App(tk.Frame):
 
     def simulation_loop(self, i=0):
         self.simulation.tick()
+        print(f"Tick {i}")
         self.after(int(1000 / self.tps), self.simulation_loop, i + 1)
 
     def render_loop(self, i=0):

@@ -2,9 +2,12 @@ import numpy as np
 import pyswarms as ps
 import csv
 
+from matplotlib import pyplot as plt
+from pyswarms.utils import plotters
+
 from simulation import Simulation
 
-sim = Simulation()
+sim = Simulation(show_plots=False)
 ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
 print(f"Simulating {ticks_to_end} ticks")
 
@@ -36,17 +39,31 @@ land_cover_rates = np.array(land_cover_rates)
 # c2 :float # social parameter
 # w :float # inertia parameter
 options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-dimensions = land_cover_rates.shape[0]
+# options = {'c1': 0.7, 'c2': 0.3, 'w': 0.9}
+# options = {'c1': 0.3, 'c2': 0.3, 'w': 0.9}
+# options = {'c1': 0.5, 'c2': 0.1, 'w': 0.9}
+# options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
+# options = {'c1': 0.5, 'c2': 0.3, 'w': 0.7}
+# options = {'c1': 0.5, 'c2': 0.3, 'w': 1.2}
+swarm_size = 20
+dimensions = land_cover_rates.shape[0] + len(sim.spread_params)
 max_bound = 2 * np.ones(dimensions)
 min_bound = np.zeros(dimensions)
 bounds = (min_bound, max_bound)
-optimizer = ps.single.GlobalBestPSO(n_particles=25,
+initial_values = np.zeros((swarm_size, dimensions))
+initial_values[:, 0:len(land_cover_rates)] = land_cover_rates
+initial_spread_params = np.array(list(sim.spread_params.values()))
+initial_values[:, len(land_cover_rates):] = initial_spread_params
+optimizer = ps.single.GlobalBestPSO(n_particles=swarm_size,
+                                    init_pos=initial_values,
                                     dimensions=dimensions,
                                     options=options,
                                     bounds=bounds)
 
 # Perform optimization
-cost, pos = optimizer.optimize(f, iters=100)
+cost, pos = optimizer.optimize(f, iters=3)
+plotters.plot_cost_history(cost_history=optimizer.cost_history)
+plt.show()
 print(pos)
 
 # Create a RandomSearch object

@@ -1,12 +1,14 @@
 import geopandas
 import numpy as np
+from matplotlib import pyplot as plt
 from shapely.geometry import Point
 from math import sin, cos, radians
 from simulation_utils import load_burnt_areas, load_land_cover, distance_between_coordinates
 from regions import region
+from sklearn import metrics
 
 
-# TODO
+# TODO Only optimize land cover spread rates for land cover that appears in region
 # PSO
 # Let pso set arguments for spread rate data
 # Give rates object to simulation
@@ -24,7 +26,19 @@ from regions import region
 
 
 class Simulation:
-    def __init__(self):
+    def __init__(self, show_plots=True):
+        self.spread_params = {
+            "burn_rate": 0.2,
+            "activity_threshold": .6,
+            "death_threshold": 0.3,
+            "death_rate": .2,
+            "area_effect_multiplier": 1,
+            "height_effect_multiplier": 2,
+            "spread_speed": 0.45,
+        }
+
+        self.show_plots = show_plots
+
         self.time_per_tick = 60 * 60  # 1 hour
         self.time_between_burnt_areas = 60 * 60 * 24 * 10  # 10 days
         # new cell state is old cell state + sum of all (neighbours mju value * neighbours state)
@@ -38,13 +52,13 @@ class Simulation:
         # ~t = 1 / R
         # R = max(cell_spread_rates, 1 <= x <= width, 1 <= y <= height)
 
-        self.height_multiplier = 3
         # Direction:
         #   0: wind from south
         #  90: wind from east
         # 180: wind from north
         # 270: wind from west
         wind_direction = radians(225)
+        # 0 speed because wind isn't in data yet
         wind_speed = 0
         wind_from_x = cos(wind_direction)
         wind_from_y = sin(wind_direction)
@@ -81,15 +95,18 @@ class Simulation:
         self.cell_height = distance_between_coordinates(
             bounds.Latitude[0], bounds.Longitude[0],
             bounds.Latitude[1], bounds.Longitude[0],
-        ) / self.width
+        ) / self.height
         self.cell_area = self.cell_width * self.cell_height
 
         self.reset_grid()
 
     def set_parameters(self, parameters):
+        # Last N params in `parameters` are for self.spread_params
         # TODO add wind and other params stuff
         for index, key in enumerate(self.land_cover_rates):
             self.land_cover_rates[key] = parameters[index]
+        for index, key in enumerate(self.spread_params):
+            self.spread_params[key] = parameters[index + len(self.land_cover_rates)]
 
     def reset_grid(self):
         self.grid = np.zeros((self.width, self.height, self.num_features))
@@ -119,17 +136,27 @@ class Simulation:
         # Compare burnt area result with self.burnt_area_end
         simulated_burnt_area = (1 - self.grid[:, :, 1]) > 0.8
         burnt_area = self.burnt_area_end > 0.8
-        equal = simulated_burnt_area == burnt_area
-        fitness = equal.sum() / equal.size
+        flat_ba = burnt_area.flatten()
+        flat_sba = simulated_burnt_area.flatten()
+        auc = metrics.roc_auc_score(flat_ba, flat_sba)
 
-        # fig, axs = plt.subplots(1, 2)
-        # axs[0].imshow(simulated_burnt_area, interpolation='nearest')
-        # axs[0].set_title('simulated burnt area, fitness: ' + str(fitness))
-        # axs[1].imshow(burnt_area, interpolation='nearest')
-        # axs[1].set_title('actual burnt area')
-        # plt.show()
+        if self.show_plots:
+            fpr, tpr, threshold = metrics.roc_curve(flat_ba, flat_sba)
+            plt.plot(fpr, tpr, linestyle='--', label='ROC Curve')
+            plt.title(f"AUC: {auc}")
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.legend()
+            plt.show()
 
-        return fitness
+            fig, axs = plt.subplots(1, 2)
+            axs[0].imshow(simulated_burnt_area, interpolation='nearest')
+            axs[0].set_title(f"simulated burnt area, AUC: {auc}")
+            axs[1].imshow(burnt_area, interpolation='nearest')
+            axs[1].set_title('actual burnt area')
+            plt.show()
+
+        return 1 - auc
 
     def tick(self):
         new_grid = self.grid.copy()
@@ -139,34 +166,42 @@ class Simulation:
                 # If cell has fire activity
                 if cell[0] > 0:
                     # Remove fire activity amount from fuel
-                    new_grid[x, y, 1] = cell[1] - cell[0]
+                    new_grid[x, y, 1] = cell[1] - cell[0] * self.spread_params["burn_rate"]
+                # If fuel ran out, set fire activity and fuel to 0
                 if new_grid[x, y, 1] < 0:
                     new_grid[x, y, 1] = 0
                     new_grid[x, y, 0] = 0
                 # Get mean fire activity around cell
-                # Multiply neighbours with mju vector (wind from north would be:
+                # Multiply neighbours with vector, wind from north would be:
                 # [1.5, 1.5, 1.5]
                 # [1,   0,   1  ]
                 # [0.5, 0.5, 0.5]
-                # Also consider height difference and later land cover
+                # Also consider height difference and land cover
                 neighbours = self.grid[x - 1:x + 2, y - 1:y + 2, :]
+                # Fire activity from neighbour cell counts more if wind comes from there
                 activity_matrix = np.multiply(neighbours[:, :, 0], self.wind_matrix)
-                height_diff_matrix = (cell[3] - neighbours[:, :, 3]) * self.height_multiplier + 1
+                # Same but for height, going down decreases activity spread, going up increases it
+                height_diff_matrix = (cell[3] - neighbours[:, :, 3]) * self.spread_params[
+                    "height_effect_multiplier"] + 1
                 activity_matrix *= height_diff_matrix
                 # Mean of activity matrix times spread rate based on land cover of current cell
                 activity = activity_matrix.mean() * cell[2]
                 # If neighbouring fire activity is high enough
-                if activity + 0.2 > np.random.random():
+                if activity > self.spread_params["activity_threshold"] + np.random.random() / 5:
                     # Increase fire activity in current cell
-                    new_grid[x, y, 0] += cell[1] * activity / self.cell_area
-                elif activity <= 0.1:
-                    new_grid[x, y, 0] /= 1 + (.2 / self.cell_area)
+                    new_grid[x, y, 0] += cell[1] * activity / \
+                                         (self.cell_area / self.spread_params["spread_speed"] * self.spread_params[
+                                             "area_effect_multiplier"])
+                elif activity <= self.spread_params["death_threshold"]:
+                    new_grid[x, y, 0] /= 1 + (self.spread_params["death_rate"] /
+                                              (self.cell_area * self.spread_params["area_effect_multiplier"]))
         self.grid = new_grid
 
 
 if __name__ == '__main__':
     sim = Simulation()
     ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
+    # ticks_to_end = 1
     print(f"Simulating {ticks_to_end} ticks")
     for i in range(ticks_to_end):
         sim.tick()
