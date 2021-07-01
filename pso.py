@@ -12,7 +12,8 @@ ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
 print(f"Simulating {ticks_to_end} ticks")
 
 
-def get_fitness(elements):
+def get_fitness(elements, i):
+    sim.show_plots = i == 0
     sim.set_parameters(elements)
     sim.reset_grid()
     for i in range(ticks_to_end):
@@ -22,7 +23,7 @@ def get_fitness(elements):
 
 def f(x):
     n_particles = x.shape[0]
-    j = [get_fitness(x[i]) for i in range(n_particles)]
+    j = [get_fitness(x[i], i) for i in range(n_particles)]
     return np.array(j)
 
 
@@ -61,7 +62,7 @@ optimizer = ps.single.GlobalBestPSO(n_particles=swarm_size,
                                     bounds=bounds)
 
 # Perform optimization
-cost, pos = optimizer.optimize(f, iters=3)
+cost, pos = optimizer.optimize(f, iters=75)
 plotters.plot_cost_history(cost_history=optimizer.cost_history)
 plt.show()
 print(pos)

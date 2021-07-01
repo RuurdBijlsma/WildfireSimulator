@@ -28,13 +28,13 @@ from sklearn import metrics
 class Simulation:
     def __init__(self, show_plots=True):
         self.spread_params = {
-            "burn_rate": 0.2,
-            "activity_threshold": .6,
-            "death_threshold": 0.3,
+            "burn_rate": 0.1,
+            "activity_threshold": .2,
+            "death_threshold": 0.1,
             "death_rate": .2,
             "area_effect_multiplier": 1,
             "height_effect_multiplier": 2,
-            "spread_speed": 0.45,
+            "spread_speed": 1.5,
         }
 
         self.show_plots = show_plots
@@ -143,7 +143,7 @@ class Simulation:
         if self.show_plots:
             fpr, tpr, threshold = metrics.roc_curve(flat_ba, flat_sba)
             plt.plot(fpr, tpr, linestyle='--', label='ROC Curve')
-            plt.title(f"AUC: {auc}")
+            plt.title(f"AUC: {round(auc * 100) / 100}")
             plt.xlabel('False Positive Rate')
             plt.ylabel('True Positive Rate')
             plt.legend()
@@ -151,7 +151,7 @@ class Simulation:
 
             fig, axs = plt.subplots(1, 2)
             axs[0].imshow(simulated_burnt_area, interpolation='nearest')
-            axs[0].set_title(f"simulated burnt area, AUC: {auc}")
+            axs[0].set_title(f"sim burnt area, AUC: {round(auc * 100) / 100}")
             axs[1].imshow(burnt_area, interpolation='nearest')
             axs[1].set_title('actual burnt area')
             plt.show()
@@ -199,9 +199,9 @@ class Simulation:
 
 
 if __name__ == '__main__':
-    sim = Simulation()
+    sim = Simulation(show_plots=True)
     ticks_to_end = round(sim.time_between_burnt_areas / sim.time_per_tick)
-    # ticks_to_end = 1
+    # ticks_to_end = 40
     print(f"Simulating {ticks_to_end} ticks")
     for i in range(ticks_to_end):
         sim.tick()
