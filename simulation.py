@@ -3,7 +3,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from shapely.geometry import Point
 from math import sin, cos, radians
-from simulation_utils import load_burnt_areas, load_land_cover, distance_between_coordinates
+from simulation_utils import load_land_cover, distance_between_coordinates
+from new.load_fire import load_burnt_area
 from regions import region
 from sklearn import metrics
 
@@ -71,6 +72,7 @@ class Simulation:
                 self.wind_matrix[x, y] = rel_x * wind_from_x + rel_y * wind_from_y
         self.wind_matrix = np.clip((self.wind_matrix * wind_speed / 2 + 1), a_min=0, a_max=3)
 
+        self.time_step = 0
         self.width = 25
         self.height = 25
         # features: [fire activity, fuel, land_cover, height]
@@ -85,7 +87,7 @@ class Simulation:
         frame = geopandas.GeoDataFrame(bounds, geometry='Coordinates')
         frame.set_crs(epsg=4326, inplace=True)
 
-        self.burnt_area_start, self.burnt_area_end = load_burnt_areas(frame, self.width, self.height)
+        self.burnt_area_start, self.burnt_area_end = load_burnt_area()
         self.land_cover_rates, self.land_cover_types = load_land_cover(frame, self.width, self.height)
 
         self.cell_width = distance_between_coordinates(
@@ -196,6 +198,7 @@ class Simulation:
                     new_grid[x, y, 0] /= 1 + (self.spread_params["death_rate"] /
                                               (self.cell_area * self.spread_params["area_effect_multiplier"]))
         self.grid = new_grid
+        self.time_step += 1
 
 
 if __name__ == '__main__':
