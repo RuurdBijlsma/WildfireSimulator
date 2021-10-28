@@ -2,12 +2,10 @@ import netCDF4 as nc
 import os
 import numpy as np
 from matplotlib import pyplot as plt
-
+from data_paths import weather_path
 
 def load_weather(bounds):
-    nc_path = os.path.abspath(
-        "../data/Weather/adaptor.mars.internal-1630357570.1783972-1285-14-bb21d314-73d9-4199-a02a-c883a678b6de.nc")
-    ds = nc.Dataset(nc_path)
+    ds = nc.Dataset(weather_path)
 
     print(ds)
     lats = ds['latitude'][:].filled(0)

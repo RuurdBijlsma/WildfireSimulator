@@ -6,27 +6,32 @@ import geopandas
 import numpy as np
 
 
-# Polygon zit klinkklaar in die geometry
-# kijk naar simulation code om te zien hoe ik deze polygons daar in implementeer
-# Split deze data op in polygon groups?
-# Kies 1 polygon group (met zelfde properties -> id) om mee te werken
-# Ze start punt als start punt van de simulatie
-# Vergelijk elke dag met de polygon van het vuur voor fitness en maak grafiek ervan voor data
-# Test en train set!
-
-# Hoe kies je een polygon om te gebruiken?
-# automatisch training?
-
-def pick_fire_id(bounds):
+# return fire id of randomly picked fire within bounds
+def pick_fire(bounds):
     if not os.path.isfile(fire_meta_path):
         generate_fire_meta()
     fire_list = np.load(fire_meta_path)
-    random_index = random.randrange(fire_list.shape[0])
-    print('loaded fire meta')
-    # loop through fires
-    # per fire get bounds of fire cropped gdf
-    # check if bounds are full within restricted bounds parameter
-    pass
+    in_bounds = np.all([
+        fire_list[:, 3] >= bounds['left'],
+        fire_list[:, 4] <= bounds['right'],
+        fire_list[:, 5] >= bounds['bottom'],
+        fire_list[:, 6] <= bounds['top'],
+    ], axis=0)
+    filtered_fires = fire_list[in_bounds]
+    assert filtered_fires.shape[0] > 0
+    random_index = random.randrange(filtered_fires.shape[0])
+    fire_array = filtered_fires[random_index]
+    return {
+        'id': fire_array[0],
+        'row_start': fire_array[1],
+        'row_end': fire_array[2],
+        'bounds': {
+            'left': fire_array[3],
+            'right': fire_array[4],
+            'bottom': fire_array[5],
+            'top': fire_array[6],
+        },
+    }
 
 
 def generate_fire_meta():
