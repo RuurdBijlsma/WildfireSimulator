@@ -1,40 +1,46 @@
 import os
 import random
 
-from data_paths import glob_fire_path, fire_meta_path
+from data_paths import get_fire_meta_path
 import geopandas
 import numpy as np
 
 
 # return fire id of randomly picked fire within bounds
 def pick_fire(bounds):
-    if not os.path.isfile(fire_meta_path):
-        generate_fire_meta()
-    fire_list = np.load(fire_meta_path)
-    in_bounds = np.all([
-        fire_list[:, 3] >= bounds['left'],
-        fire_list[:, 4] <= bounds['right'],
-        fire_list[:, 5] >= bounds['bottom'],
-        fire_list[:, 6] <= bounds['top'],
-    ], axis=0)
-    filtered_fires = fire_list[in_bounds]
-    assert filtered_fires.shape[0] > 0
-    random_index = random.randrange(filtered_fires.shape[0])
-    fire_array = filtered_fires[random_index]
-    return {
-        'id': fire_array[0],
-        'row_start': fire_array[1],
-        'row_end': fire_array[2],
-        'bounds': {
-            'left': fire_array[3],
-            'right': fire_array[4],
-            'bottom': fire_array[5],
-            'top': fire_array[6],
-        },
-    }
+    fire_paths = random.sample(bounds['fire_paths'], len(bounds['fire_paths']))
+    for fire_path in fire_paths:
+        fire_meta_path = get_fire_meta_path(fire_path)
+        if not os.path.isfile(fire_meta_path):
+            generate_fire_meta(fire_path, fire_meta_path)
+        fire_list = np.load(fire_meta_path)
+        in_bounds = np.all([
+            fire_list[:, 3] >= bounds['left'],
+            fire_list[:, 4] <= bounds['right'],
+            fire_list[:, 5] >= bounds['bottom'],
+            fire_list[:, 6] <= bounds['top'],
+        ], axis=0)
+        filtered_fires = fire_list[in_bounds]
+        if filtered_fires.shape[0] == 0:
+            continue
+        random_index = random.randrange(filtered_fires.shape[0])
+        fire_array = filtered_fires[random_index]
+        return {
+            'fire_path': fire_path,
+            'id': fire_array[0],
+            'row_start': fire_array[1],
+            'row_end': fire_array[2],
+            'bounds': {
+                'left': fire_array[3],
+                'right': fire_array[4],
+                'bottom': fire_array[5],
+                'top': fire_array[6],
+            },
+        }
+    raise Exception("No fire found within bounds restrictions")
 
 
-def generate_fire_meta():
+def generate_fire_meta(glob_fire_path, fire_meta_path):
     index = 0
     batch_size = 10000
     current_id = -1
@@ -76,26 +82,11 @@ def generate_fire_meta():
     print(all_ids)
 
 
-def load_fire_gdf(fire_id):
-    print(os.path.abspath(glob_fire_path))
-
-    index = 0
-    batch_size = 10000
-    fire_gdf = None
-    while True:
-        gdf = geopandas.read_file(
-            glob_fire_path,
-            rows=slice(index, index + batch_size)
-        )
-        partial_fire = gdf[gdf["Id"] == fire_id]
-        if fire_gdf is None:
-            fire_gdf = partial_fire
-        else:
-            fire_gdf.append(partial_fire)
-        if partial_fire.shape[0] != gdf.shape[0]:
-            break
-        index += batch_size
-    return fire_gdf
+def load_fire_gdf(fire):
+    return geopandas.read_file(
+        fire['fire_path'],
+        rows=slice(fire['start_index'], fire['end_index'])
+    )
 
 
 def gdf_to_bounds(gdf):
