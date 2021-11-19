@@ -85,7 +85,7 @@ def generate_fire_meta(glob_fire_path, fire_meta_path):
 def load_fire_gdf(fire):
     return geopandas.read_file(
         fire['fire_path'],
-        rows=slice(fire['start_index'], fire['end_index'])
+        rows=slice(fire['row_start'], fire['row_end'])
     )
 
 
