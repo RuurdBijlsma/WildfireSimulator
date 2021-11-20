@@ -4,6 +4,7 @@ import random
 from data_paths import get_fire_meta_path
 import geopandas
 import numpy as np
+from datetime import datetime, timedelta
 
 
 # return fire id of randomly picked fire within bounds
@@ -90,12 +91,16 @@ def load_fire_gdf(fire):
 
 
 def gdf_to_bounds(gdf):
+    time_start = datetime.strptime(min(gdf['IDate']), '%Y-%m-%d')
+    time_end = datetime.strptime(max(gdf['IDate']), '%Y-%m-%d')
     if gdf.shape[0] == 1:
         return {
             "left": gdf.bounds['minx'].iloc[0],
             "right": gdf.bounds['maxx'].iloc[0],
             "bottom": gdf.bounds['miny'].iloc[0],
             "top": gdf.bounds['maxy'].iloc[0],
+            "time_start": time_start,
+            "time_end": time_end,
         }
     minx = min(*gdf.bounds['minx'])
     miny = min(*gdf.bounds['miny'])
@@ -106,6 +111,8 @@ def gdf_to_bounds(gdf):
         "right": maxx,
         "bottom": miny,
         "top": maxy,
+        "time_start": time_start,
+        "time_end": time_end,
     }
 
 
@@ -124,6 +131,8 @@ def bounds_to_square(bounds):
             "right": right,
             "bottom": center_y - width / 2,
             "top": center_y + width / 2,
+            "time_start": bounds['time_start'],
+            "time_end": bounds['time_end'],
         }
     else:
         grid_bounds = {
@@ -131,6 +140,8 @@ def bounds_to_square(bounds):
             "right": center_x + width / 2,
             "bottom": bottom,
             "top": top,
+            "time_start": bounds['time_start'],
+            "time_end": bounds['time_end'],
         }
     print("bounds is now a square around the area affected by the fire in `gdf`", grid_bounds)
     return grid_bounds

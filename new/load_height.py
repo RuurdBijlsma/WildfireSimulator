@@ -20,10 +20,10 @@ def load_height(bounds):
     i_top = np.argmax(lats <= bounds['top'])
     heights = ds[layer][:, i_top:i_bottom, i_left:i_right].filled(0).squeeze()
 
-    plt.imshow(heights, interpolation='nearest')
-    title = os.path.basename(height_path)
-    plt.title(title)
-    plt.show()
+    # plt.imshow(heights, interpolation='nearest')
+    # title = os.path.basename(height_path)
+    # plt.title(title)
+    # plt.show()
 
     print(i_left)
     return heights
