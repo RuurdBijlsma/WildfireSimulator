@@ -7,6 +7,7 @@ import geopandas
 from shapely.geometry import Point
 from data_paths import height_path
 
+
 def load_height(bounds):
     ds = nc.Dataset(height_path)
     print(ds)

@@ -16,6 +16,9 @@ weather_data = load_weather(bounds)
 height_data = load_height(bounds)
 
 grid = Grid(bounds)
+weather_grid = grid.weather_grid(weather_data)
+height_grid = grid.height_grid(height_data)
+fire_grid = grid.fire_grid(fire_gdf)
 
 print(fire_gdf, weather_data, height_data)
 # TODO:
