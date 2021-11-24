@@ -1,9 +1,12 @@
 import math
 from datetime import timedelta
 import numpy as np
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point
 import cv2
 from datetime import datetime
+import csv
+import os
+from matplotlib import pyplot as plt
 
 
 class Grid:
@@ -20,6 +23,43 @@ class Grid:
         self.width = math.ceil(self.coord_width / self.spatial_resolution)
         self.height = math.ceil(self.coord_height / self.spatial_resolution)
         self.duration = self.timedelta / self.temporal_resolution
+
+    def land_cover_grid(self, land_cover_data, use_cache=True):
+        land_cover_rates = {}
+        with open('../landCoverSpreadRate.csv') as csvfile:
+            reader = csv.reader(csvfile, delimiter=';')
+            for [clc_code, _, spread_rate] in reader:
+                if clc_code == 'CLC_CODE':
+                    continue
+                land_cover_rates[clc_code] = float(spread_rate)
+
+        [left, bottom, right, top] = [self.coord_bounds['left'], self.coord_bounds['bottom'],
+                                      self.coord_bounds['right'], self.coord_bounds['top']]
+
+        lct_file = f"lct_{self.width}_{self.height}_{left}_{bottom}_{right}_{top}.npy"
+        if not os.path.isfile(lct_file) or not use_cache:
+            land_cover_types = np.zeros((self.width, self.height), np.int16)
+            for y in range(0, self.height):
+                for x in range(0, self.width):
+                    map_x = left + (right - left) * y / self.height
+                    map_y = bottom + (top - bottom) * (1 - x / self.width)
+                    map_value = land_cover_data.cx[map_x:map_x + 0.0001, map_y:map_y + 0.0001]
+                    slice_length = len(map_value)
+                    if slice_length > 0:
+                        cell_type = map_value.Code_18.values[0]
+                    else:
+                        cell_type = 999
+                    land_cover_types[x, y] = cell_type
+                print(f"{y + 1} / {self.height}")
+            np.save(lct_file, land_cover_types)
+
+        grid = np.load(lct_file)
+        plot_grid = True
+        if plot_grid:
+            plt.imshow(grid, interpolation='nearest')
+            plt.title("Land cover grid")
+            plt.show()
+        return land_cover_rates, grid
 
     def weather_grid(self, weather_data):
         # Start datetime from requests/weather.py
@@ -44,6 +84,8 @@ class Grid:
         return grid
 
     def fire_grid(self, gdf):
+        # gdf.plot()
+        # plt.show()
         sorted_gdf = gdf.sort_values(by=['FDate'])
         grid = np.zeros((self.width, self.height, gdf.shape[1]), dtype=np.bool)
         for areaIndex in range(gdf.shape[1]):
@@ -55,4 +97,12 @@ class Grid:
                     isInPolygon = Point(lon, lat).within(area)
                     grid[x, y, areaIndex] = isInPolygon
 
+        plot_fire_grid = True
+        if plot_fire_grid:
+            for i in range(grid.shape[2]):
+                plot_grid = True
+                if plot_grid:
+                    plt.imshow(grid[:, :, i], interpolation='nearest')
+                    plt.title(f"Fire shape [{i+1}/{grid.shape[2]}]")
+                    plt.show()
         return grid

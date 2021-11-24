@@ -1,27 +1,29 @@
 import geopandas
 import os
 import matplotlib.pyplot as plt
+from data_paths import land_cover_path
+from utils import get_geo_bounds
+import matplotlib.patches as patches
 
 
-def run():
-    p = os.path.abspath("data/DATA/U2018_CLC2018_V2020_20u1.gpkg")
-    print(p)
-    gdf_mask = geopandas.read_file(geopandas.datasets.get_path("naturalearth_lowres"))
-    # gdf = geopandas.read_file(
-    #     p,
-    #     mask=gdf_mask[gdf_mask.name == "Cyprus"],
-    # )
-    #                                   B L (x)  B L (y)  B R (x)   T R (y)
-    # gdf = geopandas.read_file(p, bbox=([6350000, 1600000, 6500000,  1700000]))
-    gdf = geopandas.read_file(p, bbox=([6425000, 1625000, 6430000,  1650000]))
-    # gdf = geopandas.read_file(p, bbox=(1560952.51, 942165.13, 2033490.33, 1541354.67))
-    # gdf = geopandas.read_file(p)
+def load_land_cover(bounds):
+    # left, top = change_crs(bounds['left'], bounds['top'], from_crs=4326, to_crs=3857)
+    # right, bottom = change_crs(bounds['right'], bounds['bottom'], from_crs=4326, to_crs=3857)
+    geo_bounds = get_geo_bounds(bounds['top'], bounds['left'], bounds['bottom'], bounds['right'])
+
+    p = os.path.abspath(land_cover_path)
+    gdf = geopandas.read_file(p, bbox=geo_bounds)
+    gdf.to_crs(epsg=4326, inplace=True)
     print(gdf.bounds)
     print(gdf.head())
-    gdf.plot("Code_18")
-    plt.show()
-    print("DONE")
-
-
-if __name__ == '__main__':
-    run()
+    plot_land_cover = True
+    if plot_land_cover:
+        rect = patches.Rectangle((bounds['left'], bounds['bottom']),
+                                 (bounds['right'] - bounds['left']),
+                                 (bounds['top'] - bounds['bottom']),
+                                 linewidth=1, edgecolor='r', facecolor='none')
+        fig, ax = plt.subplots()
+        gdf.plot("Code_18", ax=ax)
+        ax.add_patch(rect)
+        plt.show()
+    return gdf
