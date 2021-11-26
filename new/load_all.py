@@ -29,6 +29,8 @@ fire_grid = grid.fire_grid(fire_gdf)
 
 print(fire_gdf, weather_data, height_data)
 # TODO:
-#
-# fire_gdf, weather_data, height_data all to grid dimension sizes (spieken bij oude code die ik had)
-#
+# PSO reimplementation
+# Call cuda sim from here
+# Send grids to cuda sim
+# Send PSO params to cuda sim
+# Get result from cuda sim (std in/out)
