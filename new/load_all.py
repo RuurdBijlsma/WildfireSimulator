@@ -34,3 +34,4 @@ print(fire_gdf, weather_data, height_data)
 # Send grids to cuda sim
 # Send PSO params to cuda sim
 # Get result from cuda sim (std in/out)
+

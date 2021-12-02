@@ -3,3 +3,6 @@ data/*/*
 !data/DATA/land_cover_file
 report.log
 lct_*.npy
+*.exe
+cpp/*
+!cpp/README.md
