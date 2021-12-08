@@ -18,8 +18,8 @@ using python
    ;
 ```
 
-Build boost python lib dynamically linked
+Build boost python lib
 
-`b2 --with-python --prefix=c:\\boost175 address-model=64 variant=release link=static threading=multi runtime-link=shared install`
+`b2 --with-python --prefix=c:\\boost178 address-model=64 variant=release link=static threading=multi runtime-link=shared install`
 
-build simulation dll, rename to .pyd
+copy .pyd to ./cpp folder
