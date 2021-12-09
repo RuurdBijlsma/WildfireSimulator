@@ -6,3 +6,4 @@ lct_*.npy
 *.exe
 cpp/*
 !cpp/README.md
+!cpp/README-linux.md
