@@ -22,7 +22,7 @@ class Grid:
         self.timedelta = bounds['time_end'] - bounds['time_start']
         self.width = math.ceil(self.coord_width / self.spatial_resolution)
         self.height = math.ceil(self.coord_height / self.spatial_resolution)
-        self.duration = self.timedelta / self.temporal_resolution
+        self.duration = math.ceil(self.timedelta / self.temporal_resolution)
 
     def land_cover_grid(self, land_cover_data, use_cache=True):
         land_cover_rates = {}
@@ -38,7 +38,7 @@ class Grid:
 
         lct_file = f"lct_{self.width}_{self.height}_{left}_{bottom}_{right}_{top}.npy"
         if not os.path.isfile(lct_file) or not use_cache:
-            land_cover_types = np.zeros((self.width, self.height), np.int16)
+            lc_grid = np.zeros((self.width, self.height), np.int16)
             for y in range(0, self.height):
                 for x in range(0, self.width):
                     map_x = left + (right - left) * y / self.height
@@ -49,9 +49,9 @@ class Grid:
                         cell_type = map_value.Code_18.values[0]
                     else:
                         cell_type = 999
-                    land_cover_types[x, y] = cell_type
+                    lc_grid[x, y] = cell_type
                 print(f"{y + 1} / {self.height}")
-            np.save(lct_file, land_cover_types)
+            np.save(lct_file, lc_grid)
 
         grid = np.load(lct_file)
         plot_grid = True
@@ -59,7 +59,14 @@ class Grid:
             plt.imshow(grid, interpolation='nearest')
             plt.title("Land cover grid")
             plt.show()
-        return land_cover_rates, grid
+
+        land_cover_types = [int(x) for x in list(land_cover_rates.keys())]
+        land_cover_types.sort()
+        for y in range(0, self.height):
+            for x in range(0, self.width):
+                grid[x, y] = land_cover_types.index(grid[x, y])
+        land_cover_rates = [x[1] for x in sorted(list(land_cover_rates.items()), key=lambda l: l[0])]
+        return np.array(land_cover_rates), grid
 
     def weather_grid(self, weather_data):
         # Start datetime from requests/weather.py
@@ -72,12 +79,19 @@ class Grid:
         for key in weather_data:
             sliced = weather_data[key][slice_start:slice_start + slice_length, :, :]
             sliced = np.swapaxes(sliced, 1, 2)
-            slices_resized = np.zeros((sliced.shape[0], self.width, self.height))
+            # slices_resized = np.zeros((self.duration, self.width, self.height))
+            temp_vol = np.zeros((self.width, self.height, sliced.shape[0]), dtype=np.float64)
             for hour in range(sliced.shape[0]):
-                slices_resized[hour, :, :] = cv2.resize(sliced[hour, :, :], dsize=(self.width, self.height))
-            grids[key] = slices_resized
+                temp_vol[:, :, hour] = cv2.resize(sliced[hour, :, :], dsize=(self.height, self.width))
+            volume = np.zeros((self.width, self.height, self.duration), dtype=np.float64)
+            for x in range(self.width):
+                volume[x, :, :] = cv2.resize(temp_vol[x, :, :], dsize=(self.duration, self.height))
+            grids[key] = volume
 
-        return grids
+        weather = np.zeros((self.width, self.height, self.duration, 2), dtype=np.float64)
+        weather[:, :, :, 0] = grids['u10']
+        weather[:, :, :, 1] = grids['v10']
+        return weather
 
     def height_grid(self, nc):
         grid = cv2.resize(nc, dsize=(self.width, self.height))
@@ -103,6 +117,6 @@ class Grid:
                 plot_grid = True
                 if plot_grid:
                     plt.imshow(grid[:, :, i], interpolation='nearest')
-                    plt.title(f"Fire shape [{i+1}/{grid.shape[2]}]")
+                    plt.title(f"Fire shape [{i + 1}/{grid.shape[2]}]")
                     plt.show()
         return grid

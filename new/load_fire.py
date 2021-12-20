@@ -5,11 +5,13 @@ from data_paths import get_fire_meta_path
 import geopandas
 import numpy as np
 from datetime import datetime, timedelta
+from sklearn.model_selection import train_test_split
 
 
-# return fire id of randomly picked fire within bounds
-def pick_fire(bounds):
+def get_fire_lists(bounds):
+    results = []
     fire_paths = random.sample(bounds['fire_paths'], len(bounds['fire_paths']))
+    found_num = 0
     for fire_path in fire_paths:
         fire_meta_path = get_fire_meta_path(fire_path)
         if not os.path.isfile(fire_meta_path):
@@ -21,24 +23,39 @@ def pick_fire(bounds):
             fire_list[:, 5] >= bounds['bottom'],
             fire_list[:, 6] <= bounds['top'],
         ], axis=0)
-        filtered_fires = fire_list[in_bounds]
-        if filtered_fires.shape[0] == 0:
-            continue
-        random_index = random.randrange(filtered_fires.shape[0])
-        fire_array = filtered_fires[random_index]
-        return {
-            'fire_path': fire_path,
-            'id': fire_array[0],
-            'row_start': fire_array[1],
-            'row_end': fire_array[2],
-            'bounds': {
-                'left': fire_array[3],
-                'right': fire_array[4],
-                'bottom': fire_array[5],
-                'top': fire_array[6],
-            },
-        }
-    raise Exception("No fire found within bounds restrictions")
+        filtered = fire_list[in_bounds]
+        found_num += len(filtered)
+        for a in range(len(filtered)):
+            results.append((fire_path, filtered[a, :]))
+
+    if len(results) < 1:
+        raise Exception("No fire found within bounds restrictions")
+
+    print(f"Found {found_num} fires!")
+    return results
+
+
+def get_train_test_split(fire_lists):
+    if len(fire_lists) == 1:
+        return [fire_lists[0]], [fire_lists[0]]
+    train, test = train_test_split(fire_lists, test_size=.2)
+    return train, test
+
+
+# return fire id of randomly picked fire within bounds
+def pick_fire(fire_path, fire_array):
+    return {
+        'fire_path': fire_path,
+        'id': fire_array[0],
+        'row_start': fire_array[1],
+        'row_end': fire_array[2],
+        'bounds': {
+            'left': fire_array[3],
+            'right': fire_array[4],
+            'bottom': fire_array[5],
+            'top': fire_array[6],
+        },
+    }
 
 
 def generate_fire_meta(glob_fire_path, fire_meta_path):

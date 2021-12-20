@@ -15,14 +15,14 @@ def load_weather(bounds):
     i_bottom = np.argmax(lats <= bounds['bottom'])
     i_top = np.argmax(lats <= bounds['top'])
 
-    weather = {}
+    weather_dict = {}
     layers = ['u10', 'v10', 'd2m', 't2m', 'lai_hv', 'lai_lv', 'src', 'stl1', 'str', 'tp', 'swvl1']
     for layer in layers:
-        weather[layer] = ds[layer][:, i_top:i_bottom, i_left:i_right].filled(0)
+        weather_dict[layer] = ds[layer][:, i_top:i_bottom, i_left:i_right].filled(0)
 
         # plt.imshow(weather[layer][0, :, :], interpolation='nearest')
         # title = os.path.basename(nc_path)
         # plt.title(title)
         # plt.show()
 
-    return weather
+    return weather_dict

@@ -7,6 +7,7 @@ from simulation_utils import load_land_cover, distance_between_coordinates
 from new.load_fire import load_burnt_area
 from regions import region
 from sklearn import metrics
+import cuda_python
 
 
 # TODO Only optimize land cover spread rates for land cover that appears in region
