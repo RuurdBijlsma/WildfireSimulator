@@ -5,15 +5,22 @@ from pyswarms.utils import plotters
 from load_all import FireLoader
 from sklearn import metrics
 import cuda_python
+from sklearn.model_selection import KFold
 
 
 class PSO:
     show_plots = False
 
     def __init__(self):
+        kf = KFold(n_splits=5)
+        fires = [1, 2, 3, 4, 5, 6]
+        for train, test in kf.split(fires):
+            print(train, test)
+        # print(train, test)
+
         self.loader = FireLoader()
         self.land_cover_grid, self.land_cover_rates, self.height_grid, self.fire_grid, \
-            self.weather_grid, self.initial_params = self.loader.load_fire(self.loader.train[0])
+        self.weather_grid, self.initial_params = self.loader.load_fire(self.loader.train[0])
 
     def get_fitness(self, lcr, params):
         result = cuda_python.batch_simulate(self.land_cover_grid, lcr, self.height_grid,
