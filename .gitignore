@@ -7,3 +7,5 @@ lct_*.npy
 cpp/*
 !cpp/README.md
 !cpp/README-linux.md
+test_results.npy
+train_results.npy

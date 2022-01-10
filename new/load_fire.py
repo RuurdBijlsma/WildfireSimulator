@@ -1,17 +1,27 @@
 import os
 import random
+from multiprocessing import Pool
 
-from data_paths import get_fire_meta_path
+from constants import get_fire_meta_path, seed
 import geopandas
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 from sklearn.model_selection import train_test_split
 
 
 def get_fire_lists(bounds):
     results = []
+    random.seed(seed)
     fire_paths = random.sample(bounds['fire_paths'], len(bounds['fire_paths']))
     found_num = 0
+
+    with Pool(6) as p:
+        p.starmap(generate_fire_meta, [
+            (x, get_fire_meta_path(x))
+            for x in fire_paths
+            if not os.path.isfile(get_fire_meta_path(x))
+        ])
+
     for fire_path in fire_paths:
         fire_meta_path = get_fire_meta_path(fire_path)
         if not os.path.isfile(fire_meta_path):
@@ -32,18 +42,18 @@ def get_fire_lists(bounds):
         raise Exception("No fire found within bounds restrictions")
 
     print(f"Found {found_num} fires!")
-    return results
+    return random.sample(results, len(results))
 
 
 def get_train_test_split(fire_lists):
     if len(fire_lists) == 1:
         return [fire_lists[0]], [fire_lists[0]]
-    train, test = train_test_split(fire_lists, test_size=.2)
+    train, test = train_test_split(fire_lists, test_size=.2, random_state=seed)
     return train, test
 
 
 # return fire id of randomly picked fire within bounds
-def pick_fire(fire_path, fire_array):
+def parse_fire(fire_path, fire_array):
     return {
         'fire_path': fire_path,
         'id': fire_array[0],
@@ -74,12 +84,13 @@ def generate_fire_meta(glob_fire_path, fire_meta_path):
         if gdf.empty:
             break
 
-        sub_offset = 0
+        sub_offset = -1
         for fire_id in gdf.values[:, 2]:
             sub_offset += 1
             if current_id == fire_id:
                 continue
-            if current_id != -1:
+            calculated_fire_length = (index + sub_offset) - id_start_offset
+            if current_id != -1 and calculated_fire_length >= 3:
                 id_end_offset = index + sub_offset
                 bounds = gdf_to_bounds(geopandas.read_file(
                     glob_fire_path, rows=slice(id_start_offset, id_end_offset)
@@ -93,11 +104,11 @@ def generate_fire_meta(glob_fire_path, fire_meta_path):
             id_start_offset = index + sub_offset
 
         index += batch_size
-        print(f"Scanning gdf... {index} rows scanned, {all_ids.shape[0]} fires found")
+        print(f"Scanning {glob_fire_path}... {index} rows scanned, {all_ids.shape[0]} fires found")
 
     print(f"Saving fire metadata to file {fire_meta_path}")
     np.save(fire_meta_path, all_ids)
-    print(all_ids)
+    # print(all_ids)
 
 
 def load_fire_gdf(fire):
@@ -160,7 +171,7 @@ def bounds_to_square(bounds):
             "time_start": bounds['time_start'],
             "time_end": bounds['time_end'],
         }
-    print("bounds is now a square around the area affected by the fire in `gdf`", grid_bounds)
+    # print("bounds is now a square around the area affected by the fire in `gdf`", grid_bounds)
     return grid_bounds
 
 

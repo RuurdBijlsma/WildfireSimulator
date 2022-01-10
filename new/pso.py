@@ -1,26 +1,79 @@
 import numpy as np
 import pyswarms as ps
 from matplotlib import pyplot as plt
-from pyswarms.utils import plotters
 from load_all import FireLoader
 from sklearn import metrics
 import cuda_python
-from sklearn.model_selection import KFold
+from statistics import mean
 
 
 class PSO:
     show_plots = False
+    # PSO Options
+    options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+    swarm_size = 20
+    iterations = 10
+    # K-fold options
+    data_size = 100000
+    learning_rate = .2
+    n_folds = 5
 
     def __init__(self):
-        kf = KFold(n_splits=5)
-        fires = [1, 2, 3, 4, 5, 6]
-        for train, test in kf.split(fires):
-            print(train, test)
-        # print(train, test)
+        self.loader = FireLoader(max_data=self.data_size, n_splits=self.n_folds)
+        self.land_cover_grid = None
+        self.height_grid = None
+        self.fire_grid = None
+        self.weather_grid = None
 
-        self.loader = FireLoader()
-        self.land_cover_grid, self.land_cover_rates, self.height_grid, self.fire_grid, \
-        self.weather_grid, self.initial_params = self.loader.load_fire(self.loader.train[0])
+    def full_train(self):
+        # Starting params
+        fold = 1
+        train_results = None
+        test_results = None
+        for train_indices, test_indices in self.loader.kf.split(self.loader.fire_lists):
+            params = np.array([.3, .1, .1, 2, .1, 2, .2, 1, .1, 1])
+            land_cover_rates = None
+            training_costs = []
+            print(f"FOLD {fold} / {self.n_folds} ===============================[ TRAINING ]==========================")
+            for i, train_index in enumerate(train_indices):
+                print(f"FOLD {fold} / {self.n_folds} =========================== NOW TRAINING ON FIRE "
+                      f"{i + 1} / {len(train_indices)} ===============================")
+                self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid \
+                    = self.loader.load_fire(self.loader.fire_lists[train_index])
+                # For first training iteration set land cover rates from file
+                if land_cover_rates is None:
+                    land_cover_rates = file_lcr
+
+                cost, new_land_cover_rates, new_params = self.optimize(params, land_cover_rates)
+                params = params + (new_params - params) * self.learning_rate
+                land_cover_rates = land_cover_rates + (new_land_cover_rates - land_cover_rates) * self.learning_rate
+                training_costs.append(cost)
+
+            print(f"FOLD {fold} / {self.n_folds} Avg training cost {mean(training_costs)}")
+            test_costs = []
+            print(f"FOLD {fold} / {self.n_folds} ===========================[ TESTING ]===============================")
+            for test_index in test_indices:
+                self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid \
+                    = self.loader.load_fire(self.loader.fire_lists[test_index])
+                shaped_params = params.transpose().reshape(len(params), 1)
+                shaped_lcr = land_cover_rates.transpose().reshape(len(land_cover_rates), 1)
+                cost = self.get_fitness(shaped_lcr, shaped_params)[0]
+                test_costs.append(cost)
+            print(f"FOLD {fold} Avg test cost {mean(test_costs)}")
+            fold += 1
+
+            if train_results is None or test_results is None:
+                train_results = np.array(training_costs)
+                test_results = np.array(test_costs)
+            else:
+                train_results = np.vstack([train_results, np.array(training_costs)])
+                test_results = np.vstack([test_results, np.array(test_costs)])
+        k_fold_score = np.mean(test_results)
+        print(f"Overal average training cost {np.mean(train_results)}")
+        print(f"KFold score = {k_fold_score}")
+        print("Test scores per fold: ", np.mean(test_results, axis=1))
+        np.save("test_results.npy", test_results)
+        np.save("train_results.npy", train_results)
 
     def get_fitness(self, lcr, params):
         result = cuda_python.batch_simulate(self.land_cover_grid, lcr, self.height_grid,
@@ -53,37 +106,35 @@ class PSO:
 
         return 1 - auc
 
-    def optimize(self):
+    def optimize(self, initial_params, land_cover_rates):
         def wrap_self(inst):
             def f(x):
-                lcr = x[:, 0:len(inst.land_cover_rates)].transpose()
-                params = x[:, len(inst.land_cover_rates):].transpose()
+                lcr = x[:, 0:len(land_cover_rates)].transpose()
+                params = x[:, len(land_cover_rates):].transpose()
                 return inst.get_fitness(lcr, params)
 
             return f
 
-        options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-        swarm_size = 20
-        dimensions = self.land_cover_rates.shape[0] + len(self.initial_params)
+        dimensions = land_cover_rates.shape[0] + len(initial_params)
         max_bound = 5 * np.ones(dimensions)
         min_bound = np.zeros(dimensions)
         bounds = (min_bound, max_bound)
-        initial_values = np.zeros((swarm_size, dimensions))
-        initial_values[:, 0:len(self.land_cover_rates)] = self.land_cover_rates
-        initial_values[:, len(self.land_cover_rates):] = self.initial_params
-        optimizer = ps.single.GlobalBestPSO(n_particles=swarm_size,
+        initial_values = np.zeros((self.swarm_size, dimensions))
+        initial_values[:, 0:len(land_cover_rates)] = land_cover_rates
+        initial_values[:, len(land_cover_rates):] = initial_params
+        optimizer = ps.single.GlobalBestPSO(n_particles=self.swarm_size,
                                             init_pos=initial_values,
                                             dimensions=dimensions,
-                                            options=options,
+                                            options=self.options,
                                             bounds=bounds)
 
         # Perform optimization
-        cost, pos = optimizer.optimize(wrap_self(self), iters=100)
-        plotters.plot_cost_history(cost_history=optimizer.cost_history)
-        plt.show()
-        print(pos)
+        cost, pos = optimizer.optimize(wrap_self(self), iters=self.iterations)
+        # plotters.plot_cost_history(cost_history=optimizer.cost_history)
+        # plt.show()
+        return cost, pos[0:len(land_cover_rates)], pos[len(land_cover_rates):]
 
 
 if __name__ == "__main__":
     pso = PSO()
-    pso.optimize()
+    pso.full_train()

@@ -1,5 +1,5 @@
 import netCDF4 as nc
-from data_paths import weather_path, height_path, glob_fire_dir
+from constants import weather_path, height_path, glob_fire_dir
 from functools import lru_cache
 from datetime import datetime, timedelta
 import os

@@ -5,12 +5,12 @@ from matplotlib import pyplot as plt
 from regions import region
 import geopandas
 from shapely.geometry import Point
-from data_paths import height_path
+from constants import height_path
 
 
 def load_height(bounds):
     ds = nc.Dataset(height_path)
-    print(ds)
+    # print(ds)
     layer = "ASTER_GDEM_DEM"
 
     lats = ds['lat'][:].filled(0)
@@ -21,7 +21,7 @@ def load_height(bounds):
     i_top = np.argmax(lats <= bounds['top'])
     heights = ds[layer][:, i_top:i_bottom, i_left:i_right].filled(0).squeeze()
 
-    plot_height_data = True
+    plot_height_data = False
     if plot_height_data:
         # height_img = np.squeeze(ds[layer][:, :, :])
         plt.imshow(heights, interpolation='nearest')
@@ -29,7 +29,7 @@ def load_height(bounds):
         plt.title(title)
         plt.show()
 
-    print(i_left)
+    # print(i_left)
     return heights
 
 

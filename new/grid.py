@@ -36,7 +36,7 @@ class Grid:
         [left, bottom, right, top] = [self.coord_bounds['left'], self.coord_bounds['bottom'],
                                       self.coord_bounds['right'], self.coord_bounds['top']]
 
-        lct_file = f"lct_{self.width}_{self.height}_{left}_{bottom}_{right}_{top}.npy"
+        lct_file = f"../data/lct/lct_{self.width}_{self.height}_{left}_{bottom}_{right}_{top}.npy"
         if not os.path.isfile(lct_file) or not use_cache:
             lc_grid = np.zeros((self.width, self.height), np.int16)
             for y in range(0, self.height):
@@ -50,11 +50,11 @@ class Grid:
                     else:
                         cell_type = 999
                     lc_grid[x, y] = cell_type
-                print(f"{y + 1} / {self.height}")
+                # print(f"{y + 1} / {self.height}")
             np.save(lct_file, lc_grid)
 
         grid = np.load(lct_file)
-        plot_grid = True
+        plot_grid = False
         if plot_grid:
             plt.imshow(grid, interpolation='nearest')
             plt.title("Land cover grid")
@@ -101,22 +101,20 @@ class Grid:
         # gdf.plot()
         # plt.show()
         sorted_gdf = gdf.sort_values(by=['FDate'])
-        grid = np.zeros((self.width, self.height, gdf.shape[1]), dtype=np.bool)
-        for areaIndex in range(gdf.shape[1]):
+        grid = np.zeros((self.width, self.height, gdf.shape[0]), dtype=np.bool)
+        for areaIndex in range(gdf.shape[0]):
             area = sorted_gdf['geometry'][areaIndex]
             for x in range(self.width):
                 for y in range(self.height):
                     lon = self.coord_bounds['left'] + x * self.spatial_resolution
                     lat = self.coord_bounds['bottom'] + y * self.spatial_resolution
-                    isInPolygon = Point(lon, lat).within(area)
-                    grid[x, y, areaIndex] = isInPolygon
+                    is_in_polygon = Point(lon, lat).within(area)
+                    grid[x, y, areaIndex] = is_in_polygon
 
-        plot_fire_grid = True
+        plot_fire_grid = False
         if plot_fire_grid:
             for i in range(grid.shape[2]):
-                plot_grid = True
-                if plot_grid:
-                    plt.imshow(grid[:, :, i], interpolation='nearest')
-                    plt.title(f"Fire shape [{i + 1}/{grid.shape[2]}]")
-                    plt.show()
+                plt.imshow(grid[:, :, i], interpolation='nearest')
+                plt.title(f"Fire shape [{i + 1}/{grid.shape[2]}]")
+                plt.show()
         return grid

@@ -1,7 +1,7 @@
 import geopandas
 import os
 import matplotlib.pyplot as plt
-from data_paths import land_cover_path
+from constants import land_cover_path
 from utils import get_geo_bounds
 import matplotlib.patches as patches
 
@@ -14,9 +14,7 @@ def load_land_cover(bounds):
     p = os.path.abspath(land_cover_path)
     gdf = geopandas.read_file(p, bbox=geo_bounds)
     gdf.to_crs(epsg=4326, inplace=True)
-    print(gdf.bounds)
-    print(gdf.head())
-    plot_land_cover = True
+    plot_land_cover = False
     if plot_land_cover:
         rect = patches.Rectangle((bounds['left'], bounds['bottom']),
                                  (bounds['right'] - bounds['left']),
