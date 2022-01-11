@@ -10,11 +10,11 @@ from statistics import mean
 class PSO:
     show_plots = False
     # PSO Options
-    options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-    swarm_size = 20
-    iterations = 10
+    options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
+    swarm_size = 30
+    iterations = 30
     # K-fold options
-    data_size = 100000
+    data_size = 30
     learning_rate = .2
     n_folds = 5
 
@@ -26,7 +26,6 @@ class PSO:
         self.weather_grid = None
 
     def full_train(self):
-        # Starting params
         fold = 1
         train_results = None
         test_results = None
@@ -34,12 +33,19 @@ class PSO:
             params = np.array([.3, .1, .1, 2, .1, 2, .2, 1, .1, 1])
             land_cover_rates = None
             training_costs = []
+            train_mask = []
             print(f"FOLD {fold} / {self.n_folds} ===============================[ TRAINING ]==========================")
             for i, train_index in enumerate(train_indices):
                 print(f"FOLD {fold} / {self.n_folds} =========================== NOW TRAINING ON FIRE "
                       f"{i + 1} / {len(train_indices)} ===============================")
+                # if i < 163:
+                #     continue
                 self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid \
                     = self.loader.load_fire(self.loader.fire_lists[train_index])
+                if self.land_cover_grid is None:
+                    training_costs.append(-1)
+                    train_mask.append(1)
+                    continue
                 # For first training iteration set land cover rates from file
                 if land_cover_rates is None:
                     land_cover_rates = file_lcr
@@ -47,33 +53,47 @@ class PSO:
                 cost, new_land_cover_rates, new_params = self.optimize(params, land_cover_rates)
                 params = params + (new_params - params) * self.learning_rate
                 land_cover_rates = land_cover_rates + (new_land_cover_rates - land_cover_rates) * self.learning_rate
+                train_mask.append(0)
                 training_costs.append(cost)
 
-            print(f"FOLD {fold} / {self.n_folds} Avg training cost {mean(training_costs)}")
+            avg_train_cost = np.ma.array(training_costs, mask=train_mask).mean()
+            print(f"FOLD {fold} / {self.n_folds} Avg training cost {avg_train_cost}")
             test_costs = []
+            test_mask = []
             print(f"FOLD {fold} / {self.n_folds} ===========================[ TESTING ]===============================")
-            for test_index in test_indices:
+            for i, test_index in enumerate(test_indices):
+                print(f"FOLD {fold} / {self.n_folds} Testing {i + 1} / {len(test_indices)}")
                 self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid \
                     = self.loader.load_fire(self.loader.fire_lists[test_index])
+                if land_cover_rates is None:
+                    land_cover_rates = file_lcr
+                if self.land_cover_grid is None:
+                    test_costs.append(-1)
+                    test_mask.append(1)
+                    continue
                 shaped_params = params.transpose().reshape(len(params), 1)
                 shaped_lcr = land_cover_rates.transpose().reshape(len(land_cover_rates), 1)
                 cost = self.get_fitness(shaped_lcr, shaped_params)[0]
                 test_costs.append(cost)
-            print(f"FOLD {fold} Avg test cost {mean(test_costs)}")
+                test_mask.append(0)
             fold += 1
 
+            test_ma = np.ma.array(test_costs, mask=test_mask)
+            print(f"FOLD {fold} / {self.n_folds} Avg test cost {test_ma.mean()}")
+            train_ma = np.ma.array(training_costs, mask=train_mask)
             if train_results is None or test_results is None:
-                train_results = np.array(training_costs)
-                test_results = np.array(test_costs)
+                train_results = train_ma
+                test_results = test_ma
             else:
-                train_results = np.vstack([train_results, np.array(training_costs)])
-                test_results = np.vstack([test_results, np.array(test_costs)])
+                train_results = np.ma.vstack([train_results, train_ma])
+                test_results = np.ma.vstack([test_results, test_ma])
+                print(5)
         k_fold_score = np.mean(test_results)
         print(f"Overal average training cost {np.mean(train_results)}")
         print(f"KFold score = {k_fold_score}")
         print("Test scores per fold: ", np.mean(test_results, axis=1))
-        np.save("test_results.npy", test_results)
-        np.save("train_results.npy", train_results)
+        np.save("test_results.npy", test_results.filled(-1))
+        np.save("train_results.npy", train_results.filled(-1))
 
     def get_fitness(self, lcr, params):
         result = cuda_python.batch_simulate(self.land_cover_grid, lcr, self.height_grid,

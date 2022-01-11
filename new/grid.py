@@ -79,6 +79,8 @@ class Grid:
         for key in weather_data:
             sliced = weather_data[key][slice_start:slice_start + slice_length, :, :]
             sliced = np.swapaxes(sliced, 1, 2)
+            if sliced.shape[0] == 0:
+                return None
             # slices_resized = np.zeros((self.duration, self.width, self.height))
             temp_vol = np.zeros((self.width, self.height, sliced.shape[0]), dtype=np.float64)
             for hour in range(sliced.shape[0]):
