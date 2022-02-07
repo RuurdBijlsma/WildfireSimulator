@@ -90,9 +90,13 @@ class Grid:
                 volume[x, :, :] = cv2.resize(temp_vol[x, :, :], dsize=(self.duration, self.height))
             grids[key] = volume
 
-        weather = np.zeros((self.width, self.height, self.duration, 2), dtype=np.float64)
-        weather[:, :, :, 0] = grids['u10']
-        weather[:, :, :, 1] = grids['v10']
+        weather = np.zeros((self.width, self.height, self.duration, 6), dtype=np.float64)
+        weather[:, :, :, 0] = grids['u10']  # wind east (m/s)
+        weather[:, :, :, 1] = grids['v10']  # wind north (m/s)
+        weather[:, :, :, 2] = grids['d2m'] - 273.15  # temperature at 2m height (*C)
+        weather[:, :, :, 3] = grids['t2m'] - 273.15  # temperature at 2m height (*C)
+        weather[:, :, :, 4] = grids['tp'] * 1000  # precipitation in millimeters
+        weather[:, :, :, 5] = grids['swvl1']  # volume of water in the surface layer (m^3/m^3)
         return weather
 
     def height_grid(self, nc):

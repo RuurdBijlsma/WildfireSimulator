@@ -1,0 +1,8 @@
+numpy
+matplotlib
+geopandas
+netCDF4
+tk
+opencv-python
+scipy
+pyswarms
