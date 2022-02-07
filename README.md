@@ -1,3 +1,5 @@
+C++ part of the code is located here: https://github.com/RuurdBijlsma/cuda-fire-sim
+
 ## Installing packages
 `pip install -r requirements.txt`
 

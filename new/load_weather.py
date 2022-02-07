@@ -26,16 +26,11 @@ def load_weather(bounds):
     for layer in layers:
         weather_dict[layer] = ds[layer][:, i_top:i_bottom, i_left:i_right].filled(0)
 
-        if i_right - i_left > 1 and i_bottom - i_top > 1:
-            plot_grid = weather_dict[layer]
-            plt.imshow(plot_grid)
-            plt.title(layer)
-            plt.colorbar()
-            plt.show()
-
-        # plt.imshow(weather[layer][0, :, :], interpolation='nearest')
-        # title = os.path.basename(nc_path)
-        # plt.title(title)
-        # plt.show()
+        # if i_right - i_left > 1 and i_bottom - i_top > 1:
+        #     plot_grid = weather_dict[layer]
+        #     plt.imshow(plot_grid[0, :, :])
+        #     plt.title(layer)
+        #     plt.colorbar()
+        #     plt.show()
 
     return weather_dict
