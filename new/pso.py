@@ -9,15 +9,20 @@ import cuda_python
 from statistics import mean
 
 
+def save_results(train_results, test_results, fold=0):
+    np.save(f"test_results_fold{fold}.npy", test_results.filled(-1))
+    np.save(f"train_results_fold{fold}.npy", train_results.filled(-1))
+
+
 class PSO:
     show_plots = False
     # PSO Options
     options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
-    swarm_size = 30
+    swarm_size = 200
     iterations = 30
     # K-fold options
-    data_size = 3000
-    learning_rate = .3
+    data_size = 50
+    learning_rate = .1
     n_folds = 5
 
     best_auc_for_plot = 0
@@ -30,10 +35,14 @@ class PSO:
         self.weather_grid = None
 
     def full_train(self):
-        fold = 1
+        fold = 0
+        start_fold = 4
         train_results = None
         test_results = None
         for train_indices, test_indices in self.loader.kf.split(self.loader.fire_lists):
+            fold += 1
+            if fold < start_fold:
+                continue
             params = np.array([.3, .1, .1, 2, .1, 2, .2, 1, .1, 1])
             land_cover_rates = None
             training_costs = []
@@ -65,6 +74,9 @@ class PSO:
             test_costs = []
             test_mask = []
             print(f"FOLD {fold} / {self.n_folds} ===========================[ TESTING ]===============================")
+            np.save(f'fold{fold}_params.npy', params)
+            np.save(f'fold{fold}_land_cover_rates.npy', land_cover_rates)
+            print(f"Saved params & land cover rates for fold {fold}")
             for i, test_index in enumerate(test_indices):
                 print(f"FOLD {fold} / {self.n_folds} Testing {i + 1} / {len(test_indices)}")
                 self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid \
@@ -80,7 +92,6 @@ class PSO:
                 cost = self.get_fitness(shaped_lcr, shaped_params)[0]
                 test_costs.append(cost)
                 test_mask.append(0)
-            fold += 1
 
             test_ma = np.ma.array(test_costs, mask=test_mask)
             print(f"FOLD {fold} / {self.n_folds} Avg test cost {test_ma.mean()}")
@@ -92,12 +103,12 @@ class PSO:
                 train_results = np.ma.vstack([train_results, train_ma])
                 test_results = np.ma.vstack([test_results, test_ma])
                 print(5)
+            save_results(train_results, test_results, fold)
         k_fold_score = np.mean(test_results)
         print(f"Overal average training cost {np.mean(train_results)}")
         print(f"KFold score = {k_fold_score}")
         print("Test scores per fold: ", np.mean(test_results, axis=1))
-        np.save("test_results.npy", test_results.filled(-1))
-        np.save("train_results.npy", train_results.filled(-1))
+        save_results(train_results, test_results)
 
     def get_fitness(self, lcr, params):
         show_plots = True
@@ -119,7 +130,7 @@ class PSO:
             flat_sba = small_sba.flatten()
             auc[i] = metrics.roc_auc_score(flat_ba, flat_sba)
 
-            if auc[i] > self.best_auc_for_plot:
+            if False and auc[i] > self.best_auc_for_plot:
                 self.best_auc_for_plot = auc[i]
                 fpr, tpr, threshold = metrics.roc_curve(flat_ba, flat_sba)
 
