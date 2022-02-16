@@ -1,6 +1,7 @@
 import numpy as np
 import pyswarms as ps
 from matplotlib import pyplot as plt
+from pyswarms.utils.plotters import (plot_cost_history, plot_contour)
 from load_all import FireLoader
 from sklearn import metrics
 import cv2
@@ -17,9 +18,10 @@ def save_results(train_results, test_results, fold=0):
 class PSO:
     show_plots = False
     # PSO Options
-    options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
+    options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+    oh_strategy = {"w": 'exp_decay', "c1": 'nonlin_mod', "c2": 'lin_variation'}
     swarm_size = 200
-    iterations = 30
+    iterations = 100
     # K-fold options
     data_size = 50
     learning_rate = .1
@@ -181,8 +183,8 @@ class PSO:
 
         # Perform optimization
         cost, pos = optimizer.optimize(wrap_self(self), iters=self.iterations)
-        # plotters.plot_cost_history(cost_history=optimizer.cost_history)
-        # plt.show()
+        plot_cost_history(cost_history=optimizer.cost_history)
+        plt.show()
         return cost, pos[0:len(land_cover_rates)], pos[len(land_cover_rates):]
 
 
