@@ -18,8 +18,8 @@ def save_results(train_results, test_results, fold=0):
 class PSO:
     show_plots = False
     # PSO Options
-    options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
-    oh_strategy = {"w": 'exp_decay', "c1": 'nonlin_mod', "c2": 'lin_variation'}
+    options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
+    # oh_strategy = {"w": 'exp_decay', "c1": 'nonlin_mod', "c2": 'lin_variation'}
     swarm_size = 200
     iterations = 100
     # K-fold options
@@ -38,7 +38,7 @@ class PSO:
 
     def full_train(self):
         fold = 0
-        start_fold = 4
+        start_fold = 1
         train_results = None
         test_results = None
         for train_indices, test_indices in self.loader.kf.split(self.loader.fire_lists):
