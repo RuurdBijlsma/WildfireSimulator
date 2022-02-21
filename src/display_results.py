@@ -5,11 +5,11 @@ import numpy as np
 
 def plot_params():
     params_per_fold = [
-        np.load("results/fold1_params.npy"),
-        np.load("results/fold2_params.npy"),
-        np.load("results/fold3_params.npy"),
-        np.load("results/fold4_params.npy"),
-        np.load("results/fold5_params.npy"),
+        np.load("../results/fold1_params.npy"),
+        np.load("../results/fold2_params.npy"),
+        np.load("../results/fold3_params.npy"),
+        np.load("../results/fold4_params.npy"),
+        np.load("../results/fold5_params.npy"),
     ]
     params_labels = ["burnRate", "heightEffectMultiplierUp", "heightEffectMultiplierDown", "windEffectMultiplier",
                      "activityThreshold", "spreadSpeed", "deathRate", "areaEffectMultiplier", "fireDeathThreshold",
@@ -17,11 +17,11 @@ def plot_params():
     plot_param_values(params_per_fold, params_labels, "param")
 
     lcr_per_fold = [
-        np.load("results/fold1_land_cover_rates.npy"),
-        np.load("results/fold2_land_cover_rates.npy"),
-        np.load("results/fold3_land_cover_rates.npy"),
-        np.load("results/fold4_land_cover_rates.npy"),
-        np.load("results/fold5_land_cover_rates.npy"),
+        np.load("../results/fold1_land_cover_rates.npy"),
+        np.load("../results/fold2_land_cover_rates.npy"),
+        np.load("../results/fold3_land_cover_rates.npy"),
+        np.load("../results/fold4_land_cover_rates.npy"),
+        np.load("../results/fold5_land_cover_rates.npy"),
     ]
     lcr_labels = ["Continuous urban fabric", "Discontinuous urban fabric", "Industrial or commercial units",
                   "Road and rail networks", "Port areas", "Airports", "Mineral extraction sites",
