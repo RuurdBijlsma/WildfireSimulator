@@ -72,7 +72,7 @@ class PSO:
         avg_train_cost = np.array(training_costs)[np.not_equal(training_costs, -1)].mean()
         print(f"avg train cost {avg_train_cost}")
         avg_test_cost = np.array(test_costs)[np.not_equal(test_costs, -1)].mean()
-        print(f"avg train cost {avg_test_cost}")
+        print(f"avg test cost {avg_test_cost}")
         np.save(f"test_results_single.npy", test_costs)
         np.save(f"train_results_single.npy", training_costs)
 
