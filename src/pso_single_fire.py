@@ -10,22 +10,14 @@ import cuda_python
 from statistics import mean
 
 
-def save_results(train_results, test_results, fold=0):
-    np.save(f"test_results_fold{fold}.npy", test_results.filled(-1))
-    np.save(f"train_results_fold{fold}.npy", train_results.filled(-1))
-
-
 class PSO:
     show_plots = False
     # PSO Options
     options = {'c1': 0.5, 'c2': 0.5, 'w': 0.9}
     # oh_strategy = {"w": 'exp_decay', "c1": 'nonlin_mod', "c2": 'lin_variation'}
-    swarm_size = 100
-    iterations = 50
-    # K-fold options
-    data_size = 50
-    learning_rate = .1
-    n_folds = 5
+    swarm_size = 30
+    iterations = 30
+    data_size = 7777
 
     best_auc_for_plot = 0
 
@@ -40,12 +32,8 @@ class PSO:
         params = np.array([.3, .1, .1, 2, .1, 2, .2, 1, .1, 1])
         land_cover_rates = None
         training_costs = []
-        train_mask = []
         test_costs = []
-        test_mask = []
         for i, fire in enumerate(self.loader.fire_lists):
-            if i < 17:
-                continue
             self.best_auc_for_plot = 0
             print(f"=========================== NOW TRAINING ON FIRE "
                   f"{i + 1} / {len(self.loader.fire_lists)} ===============================")
@@ -54,10 +42,7 @@ class PSO:
             #       Training
             # error todo: its still none with a real fire:
             if train is None or test is None:
-                training_costs.append(-1)
-                train_mask.append(1)
                 continue
-            print(5)
             self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid = train
             if (not np.any(self.fire_grid[:, :, 0])):
                 print("Fire has no starting spot! skipping")
@@ -67,31 +52,29 @@ class PSO:
             if land_cover_rates is None:
                 land_cover_rates = file_lcr
 
-            cost, new_land_cover_rates, new_params = self.optimize(params, land_cover_rates)
-            params = params + (new_params - params) * self.learning_rate
-            land_cover_rates = land_cover_rates + (new_land_cover_rates - land_cover_rates) * self.learning_rate
-            train_mask.append(0)
-            training_costs.append(cost)
-            print(f"TRAIN COST: {cost}")
+            train_cost, new_land_cover_rates, new_params = self.optimize(params, land_cover_rates)
+            params = new_params
+            land_cover_rates = new_land_cover_rates
 
             #       Testing
 
             self.land_cover_grid, file_lcr, self.height_grid, self.fire_grid, self.weather_grid = test
             if self.land_cover_grid is None:
-                test_costs.append(-1)
-                test_mask.append(1)
                 continue
             shaped_params = params.transpose().reshape(len(params), 1)
             shaped_lcr = land_cover_rates.transpose().reshape(len(land_cover_rates), 1)
-            cost = self.get_fitness(shaped_lcr, shaped_params)[0]
-            test_costs.append(cost)
-            test_mask.append(0)
-            print(f"TEST COST: {cost}")
+            test_cost = self.get_fitness(shaped_lcr, shaped_params)[0]
+            training_costs.append(train_cost)
+            test_costs.append(test_cost)
+            print(f"TRAIN COST: {train_cost}")
+            print(f"TEST COST: {test_cost}")
 
-        avg_train_cost = np.ma.array(training_costs, mask=train_mask).mean()
+        avg_train_cost = np.array(training_costs)[np.not_equal(training_costs, -1)].mean()
         print(f"avg train cost {avg_train_cost}")
-        avg_test_cost = np.ma.array(test_costs, mask=test_mask).mean()
+        avg_test_cost = np.array(test_costs)[np.not_equal(test_costs, -1)].mean()
         print(f"avg train cost {avg_test_cost}")
+        np.save(f"test_results_single.npy", test_costs)
+        np.save(f"train_results_single.npy", training_costs)
 
     def get_fitness(self, lcr, params):
         show_plots = True
@@ -113,7 +96,7 @@ class PSO:
             flat_sba = small_sba.flatten()
             auc[i] = metrics.roc_auc_score(flat_ba, flat_sba)
 
-            if True and auc[i] > self.best_auc_for_plot:
+            if False and auc[i] > self.best_auc_for_plot:
                 self.best_auc_for_plot = auc[i]
                 fpr, tpr, threshold = metrics.roc_curve(flat_ba, flat_sba)
 
@@ -164,7 +147,8 @@ class PSO:
 
         # Perform optimization
         cost, pos = optimizer.optimize(wrap_self(self), iters=self.iterations)
-        plot_cost_history(cost_history=optimizer.cost_history)
+        if False:
+            plot_cost_history(cost_history=optimizer.cost_history)
         plt.show()
         return cost, pos[0:len(land_cover_rates)], pos[len(land_cover_rates):]
 
